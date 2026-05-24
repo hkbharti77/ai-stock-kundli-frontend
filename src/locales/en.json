@@ -1,0 +1,95 @@
+{
+  "common": {
+    "appName": "Stock Kundli",
+    "loading": "Loading...",
+    "saveAndContinue": "Save & Continue",
+    "skipForNow": "Skip For Now",
+    "back": "Back",
+    "next": "Next",
+    "logout": "Log out"
+  },
+  "landing": {
+    "title": "AI Stock Kundli",
+    "subtitle": "Elevate Your Research Insights",
+    "tagline": "AI-powered investment intelligence platform analyzing NSE/BSE stocks.",
+    "cta": "Get Started"
+  },
+  "login": {
+    "title": "Welcome Back",
+    "subtitle": "Access your premium stock intelligence dashboard.",
+    "emailLabel": "Email Address",
+    "passwordLabel": "Password",
+    "button": "Log In",
+    "noAccount": "Don't have an account?",
+    "signupLink": "Sign up"
+  },
+  "signup": {
+    "step1Title": "Create Account",
+    "step1Subtitle": "Enter your email and verify your address using real-time OTP delivery.",
+    "emailLabel": "Email Address",
+    "passwordLabel": "Password",
+    "phoneLabel": "Phone Number",
+    "sendOtp": "Send Verification OTP",
+    "enterOtp": "Enter 6-Digit OTP",
+    "otpSentText": "We've sent a code to",
+    "verifyBtn": "Verify & Continue",
+    "verifying": "Verifying...",
+    "alreadyHaveAccount": "Already have an account?",
+    "loginLink": "Log in",
+    
+    "step2Title": "Secure Your Account",
+    "step2Subtitle": "Complete legal compliance onboarding to start tracking stock insights.",
+    "fullNameLabel": "Full Name",
+    "cityLabel": "City of Residence",
+    "dobLabel": "Date of Birth",
+    "panLabel": "PAN Card Number",
+    "saving": "Saving secure data...",
+    "secureBtn": "Secure & Continue",
+    
+    "step3Title": "Set Up Your Profile",
+    "step3Subtitle": "Specify your trading goals so the AI agent can curate customized technical signals.",
+    "riskLabel": "Risk Appetite",
+    "expLabel": "Investment Experience",
+    "goalLabel": "Investment Goal",
+    
+    "step4Title": "Compliance Disclaimer",
+    "step4Subtitle": "Please review and accept our SEBI-compliant Advisory Disclaimer.",
+    "disclaimerText": "I understand and accept that this platform provides algorithmic research insights and AI-driven stock reports, not investment advice.",
+    "acceptBtn": "Accept & Complete Registration"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "watchlist": "Watchlist",
+    "recentAlerts": "Recent Alerts",
+    "marketsOpen": "Markets Open",
+    "searchPlaceholder": "Search stocks...",
+    "goodMorning": "Good morning",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "memberSince": "Member Since",
+    "kundlisToday": "Kundlis Today",
+    "account": "Account",
+    "pulseText": "Markets are open. Here's your portfolio pulse."
+  },
+  "login": {
+    "welcomeBack": "Welcome back. Log in to continue.",
+    "email": "Email",
+    "password": "Password",
+    "logInBtn": "Log in",
+    "loggingIn": "Logging in...",
+    "dontHaveAccount": "Don't have an account?",
+    "signUpFree": "Sign up free",
+    "termsText": "By logging in, you agree to our Terms of Service and Privacy Policy."
+  },
+  "landing": {
+    "login": "Log in",
+    "getStarted": "Get Started",
+    "tagline": "Institutional-Grade Investment Intelligence for Everyone",
+    "description": "AI Stock Kundli analyzes every listed company across fundamentals, technicals, news sentiment, and risk — then explains its reasoning in plain language.",
+    "searchAnyStock": "Search any stock... RELIANCE, TCS, HDFC Bank",
+    "analyzeBtn": "Analyze",
+    "smarterDecisions": "Start making smarter decisions today",
+    "startFreeBtn": "Start Free — No Credit Card",
+    "viewDemoBtn": "View Demo"
+  }
+}
