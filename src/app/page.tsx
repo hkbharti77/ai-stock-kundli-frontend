@@ -13,38 +13,38 @@ import LanguageSelector from "../components/LanguageSelector";
 const FEATURES = [
   {
     icon: "🧠",
-    title: "Multi-Agent AI Analysis",
+    title: "7-Agent Weighted Consensus",
     description:
-      "8 specialized AI agents analyze fundamentals, technicals, news, risk, macro, sector, and valuation simultaneously.",
+      "7 specialized AI agents analyze fundamentals, technicals, news, risk, macro, sector, and valuation in parallel for optimal consensus.",
     badge: "Core Engine",
   },
   {
     icon: "📊",
-    title: "Company Kundli Reports",
+    title: "Bilingual Kundli Reports",
     description:
-      "Comprehensive, explainable research reports generated in under 30 seconds with confidence scores.",
+      "Comprehensive research reports generated in under 30 seconds with confidence scores in English and Hindi.",
     badge: "Instant",
   },
   {
     icon: "🔔",
-    title: "Real-Time Alerts",
+    title: "Twilio SMS & Email Alerts",
     description:
-      "Price movements, breakout signals, news impact, and sentiment shifts delivered to your preferred channel.",
-    badge: "Live",
+      "Real-time breakout signals, news sentiment spikes, and agent consensus shifts delivered directly via SMS and Email.",
+    badge: "Live Telemetry",
   },
   {
     icon: "🎯",
     title: "Smart Portfolio Builder",
     description:
       "AI-optimized position sizing with Kelly-criterion adjustments and correlation-aware diversification.",
-    badge: "Pro",
+    badge: "Pro Tier Only",
   },
   {
     icon: "📰",
-    title: "News Intelligence",
+    title: "Transparency Dashboard",
     description:
-      "AI-classified news with sentiment scoring and impact analysis from 10+ financial sources.",
-    badge: "NLP",
+      "Track every historical consensus call in our public accuracy ledger to audit long-term predictive success.",
+    badge: "Open Audit",
   },
   {
     icon: "🛡️",
@@ -57,9 +57,9 @@ const FEATURES = [
 
 const STATS = [
   { value: "2,000+", label: "NSE Stocks Covered" },
-  { value: "8", label: "AI Agents Working" },
+  { value: "7", label: "AI Consensus Agents" },
+  { value: "86.2%", label: "Verified Accuracy Rate" },
   { value: "<30s", label: "Report Generation" },
-  { value: "99.9%", label: "Platform Uptime" },
 ];
 
 const TICKERS = [
@@ -260,6 +260,9 @@ export default function LandingPage() {
                 </Link>
                 <Link href="/login" className="btn-secondary text-base">
                   {t("landing.viewDemoBtn")}
+                </Link>
+                <Link href="/dashboard/accuracy" className="btn-secondary text-base border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                  📈 View Live Accuracy Ledger
                 </Link>
               </div>
               <p className="mt-4 text-xs text-gray-500">

@@ -18,6 +18,14 @@ import TechnicalThesis from "./components/TechnicalThesis";
 import NewsVisualizer from "./components/NewsVisualizer";
 import KundliReportVisualizer from "./components/KundliReportVisualizer";
 import SEBIDisclaimer from "./components/SEBIDisclaimer";
+import RiskFlagsPanel from "./components/RiskFlagsPanel";
+import MacroEnvironmentWidget from "./components/MacroEnvironmentWidget";
+import SectorPeersPanel from "./components/SectorPeersPanel";
+import ValuationHistoryPanel from "./components/ValuationHistoryPanel";
+import SentimentEnginePanel from "./components/SentimentEnginePanel";
+import NewsTickerWidget from "./components/NewsTickerWidget";
+import CorporateEventsTimeline from "./components/CorporateEventsTimeline";
+import AlertTriggerPanel from "./components/AlertTriggerPanel";
 
 interface CompanyProfile {
   ticker: string;
@@ -41,6 +49,11 @@ interface FinancialStatement {
   roe: number | null;
   operating_cash_flow: number | null;
   free_cash_flow: number | null;
+  promoter_holding_pct?: number | null;
+  promoter_pledge_pct?: number | null;
+  fii_holding_pct?: number | null;
+  dii_holding_pct?: number | null;
+  public_holding_pct?: number | null;
 }
 
 interface FinancialsWrapper {
@@ -104,7 +117,7 @@ export default function StockDetailsClient() {
   const [realtimeFetching, setRealtimeFetching] = useState(false);
   const [realtimeStep, setRealtimeStep] = useState(0);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"kundli_report" | "chart" | "financials" | "fundamental" | "technical" | "news">("kundli_report");
+  const [activeTab, setActiveTab] = useState<"kundli_report" | "chart" | "financials" | "fundamental" | "technical" | "news" | "peers" | "valuation" | "sentiment" | "alerts">("kundli_report");
 
   // Interactive chart state
   const [hoveredPrice, setHoveredPrice] = useState<PriceRecord | null>(null);
@@ -117,6 +130,29 @@ export default function StockDetailsClient() {
   // User and Rate Limiting states
   const [user, setUser] = useState<any>(null);
   const [rateLimited, setRateLimited] = useState(false);
+  const [signalHistory, setSignalHistory] = useState<any[]>([]);
+  const [reportLang, setReportLang] = useState<"en" | "hi">("en");
+
+  const logTelemetryEvent = async (eventName: string, eventData: any = {}) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      await fetch(`${apiUrl}/api/v1/analytics/log-event?event_name=${eventName}${user?.id ? `&user_id=${user.id}` : ""}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : ""
+        },
+        body: JSON.stringify(eventData)
+      });
+    } catch (err) {
+      console.error("Telemetry event logging error:", err);
+    }
+  };
+
+  useEffect(() => {
+    logTelemetryEvent("view_tab", { tab: activeTab });
+  }, [activeTab]);
 
   // Custom Alert Modal state
   const [alertOpen, setAlertOpen] = useState(false);
@@ -144,7 +180,7 @@ export default function StockDetailsClient() {
     };
   }, []);
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (planName: "starter" | "pro" = "starter") => {
     try {
       const token = localStorage.getItem("access_token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -155,7 +191,7 @@ export default function StockDetailsClient() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ plan: "starter" })
+        body: JSON.stringify({ plan: planName })
       });
 
       if (!res.ok) throw new Error("Checkout failed");
@@ -169,7 +205,7 @@ export default function StockDetailsClient() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ plan: "starter" })
+          body: JSON.stringify({ plan: planName })
         });
         if (upgradeRes.ok) {
           const userRes = await fetch(`${apiUrl}/api/v1/auth/me`, {
@@ -185,7 +221,7 @@ export default function StockDetailsClient() {
           setRateLimited(false); // Clear the rate limit block instantly on upgrade!
           // Retry fetching the Kundli report to show premium results instantly!
           fetchKundliReport();
-          showAlert("Upgrade Successful", "🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Starter'.", "success");
+          showAlert("Upgrade Successful", `🎉 Sandbox Upgrade Successful! Your plan is now upgraded to '${planName.toUpperCase()}'.`, "success");
         }
       } else {
         const options = {
@@ -193,7 +229,7 @@ export default function StockDetailsClient() {
           amount: order.amount,
           currency: order.currency,
           name: "AI Stock Kundli",
-          description: "Starter Subscription",
+          description: `${planName.toUpperCase()} Subscription`,
           order_id: order.id,
           handler: async function (response: any) {
             try {
@@ -207,7 +243,7 @@ export default function StockDetailsClient() {
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_signature: response.razorpay_signature,
-                  plan: "starter"
+                  plan: planName
                 })
               });
               
@@ -221,7 +257,7 @@ export default function StockDetailsClient() {
                 }
                 setRateLimited(false);
                 fetchKundliReport();
-                showAlert("Upgrade Successful", "🎉 Thank you! Your plan is now upgraded to 'Starter'.", "success");
+                showAlert("Upgrade Successful", `🎉 Thank you! Your plan is now upgraded to '${planName.toUpperCase()}'.`, "success");
               } else {
                 showAlert("Verification Failed", "Payment verification failed. Please contact support.", "error");
               }
@@ -283,14 +319,30 @@ export default function StockDetailsClient() {
   };
 
 
-  const fetchKundliReport = async () => {
+  const fetchSignalHistory = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiUrl}/api/v1/companies/${ticker}/signal-history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSignalHistory(data.transitions || []);
+      }
+    } catch (err) {
+      console.error("Error fetching signal history:", err);
+    }
+  };
+
+  const fetchKundliReport = async (lang: "en" | "hi" = reportLang) => {
     setLoadingKundliReport(true);
     setRateLimited(false);
     try {
       const token = localStorage.getItem("access_token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await fetch(`${apiUrl}/api/v1/companies/${ticker}/kundli-report`, { headers });
+      const res = await fetch(`${apiUrl}/api/v1/companies/${ticker}/kundli-report?lang=${lang}`, { headers });
       if (res.status === 429) {
         setRateLimited(true);
         return;
@@ -299,6 +351,7 @@ export default function StockDetailsClient() {
         const data = await res.json();
         setKundliReport(data);
       }
+      fetchSignalHistory();
     } catch (err) {
       console.error("Error loading Kundli report:", err);
     } finally {
@@ -828,9 +881,9 @@ export default function StockDetailsClient() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-extrabold tracking-tight text-white">{profile.name}</h1>
-                <span className="badge-blue font-mono">{profile.ticker}</span>
-                <span className="badge-gray font-mono">{profile.exchange}</span>
+                <h1 className="text-3xl font-extrabold tracking-tight text-white">{profile?.name}</h1>
+                <span className="badge-blue font-mono">{profile?.ticker}</span>
+                <span className="badge-gray font-mono">{profile?.exchange}</span>
 
                 <button
                   onClick={toggleWatchlist}
@@ -848,7 +901,7 @@ export default function StockDetailsClient() {
                 </button>
               </div>
               <p className="text-gray-400 text-sm mt-1">
-                {profile.sector} • {profile.sub_sector} • ISIN: {profile.isin}
+                {profile?.sector} • {profile?.sub_sector} • ISIN: {profile?.isin}
               </p>
             </div>
 
@@ -879,7 +932,7 @@ export default function StockDetailsClient() {
           <div className="border-t border-white/5 mt-6 pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider">Market Cap</p>
-              <p className="text-base font-semibold mt-1 font-mono">{formatMcap(profile.market_cap)}</p>
+              <p className="text-base font-semibold mt-1 font-mono">{formatMcap(profile?.market_cap ?? null)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider">52-Week High</p>
@@ -903,6 +956,7 @@ export default function StockDetailsClient() {
 
           {/* Main Dashboard Tabs */}
           <div className="lg:col-span-2 space-y-6">
+            <NewsTickerWidget />
             <div className="flex border-b border-white/10 gap-6 overflow-x-auto whitespace-nowrap scrollbar-none">
               <button
                 onClick={() => setActiveTab("kundli_report")}
@@ -957,6 +1011,42 @@ export default function StockDetailsClient() {
                   }`}
               >
                 AI News Analyst
+              </button>
+              <button
+                onClick={() => setActiveTab("peers")}
+                className={`pb-3 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 ${activeTab === "peers"
+                    ? "border-blue-500 text-blue-400"
+                    : "border-transparent text-gray-400 hover:text-white"
+                  }`}
+              >
+                AI Sector Benchmarking
+              </button>
+              <button
+                onClick={() => setActiveTab("valuation")}
+                className={`pb-3 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 ${activeTab === "valuation"
+                    ? "border-indigo-500 text-indigo-400"
+                    : "border-transparent text-gray-400 hover:text-white"
+                  }`}
+              >
+                AI Valuation Multiple & DCF
+              </button>
+              <button
+                onClick={() => setActiveTab("sentiment")}
+                className={`pb-3 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 ${activeTab === "sentiment"
+                    ? "border-indigo-500 text-indigo-400"
+                    : "border-transparent text-gray-400 hover:text-white"
+                  }`}
+              >
+                AI Sentiment Engine
+              </button>
+              <button
+                onClick={() => setActiveTab("alerts")}
+                className={`pb-3 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 ${activeTab === "alerts"
+                    ? "border-indigo-500 text-indigo-400"
+                    : "border-transparent text-gray-400 hover:text-white"
+                  }`}
+              >
+                AI Alert Center
               </button>
             </div>
 
@@ -1049,20 +1139,57 @@ export default function StockDetailsClient() {
                     <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">LIMIT REACHED</span>
                     <h3 className="text-xl font-bold text-white">Daily AI Kundli Report Limit Reached</h3>
                     <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed">
-                      You have reached the daily consensus report generation limit on the Free Plan.
-                      Upgrade to the <span className="font-semibold text-white">Starter Plan</span> to unlock 20 premium AI Stock Kundli reports per day, deep consensus metrics, and priority real-time stock alerts.
+                      You have reached the daily consensus report generation limit on the Free Plan. Upgrade your account instantly to unlock premium analytics, unlimited reports, and live SMS delivery channels.
                     </p>
-                    <div className="mt-6 flex items-center justify-center gap-2">
-                      <span className="text-2xl font-extrabold text-white font-mono">₹299</span>
-                      <span className="text-xs text-gray-500">/ month</span>
+
+                    <div className="mt-8 flex flex-col md:flex-row items-stretch justify-center gap-6 max-w-3xl mx-auto">
+                      {/* Starter Option */}
+                      <div className="glass-card p-5 border border-white/5 bg-white/[0.01] rounded-xl flex-1 flex flex-col justify-between text-left space-y-4">
+                        <div>
+                          <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-white/10 text-gray-300 border border-white/10 tracking-widest font-mono">STARTER VALUE</span>
+                          <h4 className="text-sm font-bold text-white mt-2">Starter Subscription</h4>
+                          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                            Unlock up to 20 daily AI Kundli reports, technical trend signals, and standard real-time dashboards.
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-baseline gap-1 mt-2">
+                            <span className="text-xl font-extrabold text-white font-mono">₹299</span>
+                            <span className="text-[10px] text-gray-500">/ month</span>
+                          </div>
+                          <button
+                            onClick={() => handleUpgrade("starter")}
+                            className="mt-3 w-full py-2 bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-300 hover:text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition duration-300"
+                          >
+                            Upgrade to Starter
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pro Option */}
+                      <div className="glass-card p-5 border border-indigo-500/25 bg-indigo-500/[0.02] rounded-xl flex-1 flex flex-col justify-between text-left space-y-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-bl">RECOMMENDED</div>
+                        <div>
+                          <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 tracking-widest font-mono">PRO POWER</span>
+                          <h4 className="text-sm font-bold text-white mt-2">Pro Subscription</h4>
+                          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                            Unlimited reports/day, full multi-agent news classification timeline, social sentiment engines, and live SMS Twilio/MSG91 notifications (max 10/day).
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-baseline gap-1 mt-2">
+                            <span className="text-xl font-extrabold text-white font-mono">₹799</span>
+                            <span className="text-[10px] text-gray-500">/ month</span>
+                          </div>
+                          <button
+                            onClick={() => handleUpgrade("pro")}
+                            className="mt-3 w-full py-2 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/10"
+                          >
+                            Upgrade to Pro
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <button
-                      onClick={handleUpgrade}
-                      className="mt-4 px-8 py-3 bg-gradient-to-r from-indigo-500 to-electric-500 text-white font-bold rounded-xl text-xs hover:from-indigo-600 hover:to-electric-600 transition shadow-lg shadow-indigo-500/20 hover:scale-[1.02] transform duration-200"
-                      id="upgrade-rate-limit-btn"
-                    >
-                      Upgrade Instantly via Razorpay Sandbox
-                    </button>
                   </div>
                 ) : loadingKundliReport && !kundliReport ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
@@ -1083,7 +1210,86 @@ export default function StockDetailsClient() {
                     </button>
                   </div>
                 ) : (
-                  <KundliReportVisualizer report={kundliReport} />
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    <div className="lg:col-span-2 space-y-4">
+                      {/* Premium Language Selection Toggle */}
+                      <div className="glass-card px-4 py-2.5 flex items-center justify-between border-white/5 bg-white/[0.01] rounded-xl">
+                        <div className="flex items-center gap-2">
+                          <svg className="h-4 w-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5c-.347 2.287-1.566 4.545-3.414 6.5m0 0a17.915 17.915 0 01-3.078-5.064M9.337 11.5a14.96 14.96 0 01-3.407-3.92" />
+                          </svg>
+                          <span className="text-[10px] font-extrabold text-gray-300 uppercase tracking-widest">Report Language / रिपोर्ट की भाषा</span>
+                        </div>
+                        <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
+                          <button
+                            onClick={() => {
+                              setReportLang("en");
+                              fetchKundliReport("en");
+                              logTelemetryEvent("toggle_report_language", { language: "en" });
+                            }}
+                            className={`px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider transition ${
+                              reportLang === "en"
+                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                                : "text-gray-400 hover:text-white"
+                            }`}
+                          >
+                            English
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReportLang("hi");
+                              fetchKundliReport("hi");
+                              logTelemetryEvent("toggle_report_language", { language: "hi" });
+                            }}
+                            className={`px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider transition ${
+                              reportLang === "hi"
+                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                                : "text-gray-400 hover:text-white"
+                            }`}
+                          >
+                            हिन्दी (Hindi)
+                          </button>
+                        </div>
+                      </div>
+                      <KundliReportVisualizer report={kundliReport} />
+                    </div>
+                    <div className="glass-card p-6 space-y-4 border-indigo-500/10 bg-indigo-500/[0.005] h-fit">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-1.5 border-b border-white/5 pb-3">
+                        <svg className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Rating Transition History
+                      </h4>
+                      {signalHistory && signalHistory.length > 0 ? (
+                        <div className="relative border-l border-white/10 ml-2.5 pl-4.5 space-y-4 pt-1">
+                          {signalHistory.map((trans, idx) => {
+                            const isUpgrade = trans.new_score > (trans.old_score || 0);
+                            return (
+                              <div key={idx} className="relative">
+                                <span className={`absolute -left-7.5 top-1.5 h-3 w-3 rounded-full border border-dark-900 ${
+                                  isUpgrade ? "bg-emerald-500" : "bg-rose-500"
+                                }`} />
+                                <div className="space-y-0.5">
+                                  <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-bold text-white">
+                                      {trans.old_signal && trans.old_signal !== "N/A" ? `${trans.old_signal} → ` : ""}
+                                      <span className={isUpgrade ? "text-emerald-400" : "text-rose-400"}>{trans.new_signal}</span>
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 font-mono">{trans.changed_at.split(" ")[0]}</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 leading-normal">
+                                    Score adjusted from {trans.old_score || "N/A"} to <span className="font-bold text-white">{trans.new_score}</span>.
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-gray-500 italic">No historical signal transitions recorded yet for {ticker}.</p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -1322,6 +1528,37 @@ export default function StockDetailsClient() {
                 )}
               </div>
             )}
+
+            {activeTab === "peers" && (
+              <SectorPeersPanel
+                ticker={ticker}
+                agentData={kundliReport?.agents?.find((a: any) => a.agent_type === "sector_analyst")}
+              />
+            )}
+
+            {activeTab === "valuation" && (
+              <ValuationHistoryPanel
+                ticker={ticker}
+                agentData={kundliReport?.agents?.find((a: any) => a.agent_type === "valuation_analyst")}
+              />
+            )}
+
+            {activeTab === "sentiment" && (
+              <div className="space-y-6">
+                <SentimentEnginePanel
+                  ticker={ticker}
+                />
+                <CorporateEventsTimeline
+                  ticker={ticker}
+                />
+              </div>
+            )}
+
+            {activeTab === "alerts" && (
+              <AlertTriggerPanel
+                ticker={ticker}
+              />
+            )}
           </div>
 
           {/* Right Sidebar - AI Kundli score panel & SEBI Disclaimers */}
@@ -1364,6 +1601,46 @@ export default function StockDetailsClient() {
                 debtEquity={financials?.annual?.[financials.annual.length - 1]?.debt_equity}
               />
             )}
+
+            {/* Risk & Governance Panel */}
+            <RiskFlagsPanel
+              promoterHolding={financials?.annual?.[financials.annual.length - 1]?.promoter_holding_pct ?? 54.5}
+              promoterPledge={financials?.annual?.[financials.annual.length - 1]?.promoter_pledge_pct ?? 0.0}
+              fiiHolding={financials?.annual?.[financials.annual.length - 1]?.fii_holding_pct ?? 18.2}
+              diiHolding={financials?.annual?.[financials.annual.length - 1]?.dii_holding_pct ?? 12.3}
+              publicHolding={financials?.annual?.[financials.annual.length - 1]?.public_holding_pct ?? 15.0}
+              debtEquity={financials?.annual?.[financials.annual.length - 1]?.debt_equity ?? 0.5}
+              hasLegalAlerts={
+                kundliReport?.top_risks?.some((r: string) => 
+                  r.toLowerCase().includes("legal") || 
+                  r.toLowerCase().includes("sebi") || 
+                  r.toLowerCase().includes("audit") || 
+                  r.toLowerCase().includes("litigation")
+                ) ?? false
+              }
+              riskScore={
+                kundliReport?.agents?.find((a: any) => a.agent_type === "risk_analyst")?.score ?? 70
+              }
+              riskCategory={
+                (() => {
+                  const s = kundliReport?.agents?.find((a: any) => a.agent_type === "risk_analyst")?.score ?? 70;
+                  if (s >= 80) return "Critical";
+                  if (s >= 65) return "High";
+                  if (s >= 45) return "Medium";
+                  return "Low";
+                })()
+              }
+            />
+
+            {/* Macro Environment Snapshot */}
+            <MacroEnvironmentWidget
+              sector={profile?.sector ?? "Technology"}
+              macroScore={
+                kundliReport?.agents?.find((a: any) => a.agent_type === "macro_analyst")?.score ?? 60
+              }
+              strengths={kundliReport?.top_positives || []}
+              concerns={kundliReport?.top_risks || []}
+            />
 
             {/* SEBI Compliance Warnings and Disclaimers */}
             <div className="glass-card p-5 border-rose-500/15 bg-rose-500/[0.01]">

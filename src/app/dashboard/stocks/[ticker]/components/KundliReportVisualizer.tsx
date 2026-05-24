@@ -19,6 +19,12 @@ export interface SignalSensitizer {
   impact: string;
 }
 
+export interface ProbabilityHorizon {
+  horizon: string;
+  output: string;
+  probability: number;
+}
+
 export interface KundliReportData {
   ticker: string;
   company_name: string;
@@ -37,6 +43,7 @@ export interface KundliReportData {
   methodology_url: string;
   generated_at: string;
   cached?: boolean;
+  probability_horizons?: ProbabilityHorizon[];
 }
 
 interface VisualizerProps {
@@ -61,6 +68,8 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
       case "fundamental_analyst": return "Fundamental Analyst";
       case "technical_analyst": return "Technical Analyst";
       case "news_analyst": return "News Analyst";
+      case "risk_analyst": return "Risk & Governance Analyst";
+      case "macro_analyst": return "Macroeconomic Analyst";
       default: return agentType;
     }
   };
@@ -165,6 +174,52 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
           </div>
         </div>
       </div>
+
+      {/* PROBABILITY DISTRIBUTION ENGINE HORIZONS */}
+      {report.probability_horizons && report.probability_horizons.length > 0 && (
+        <div className="glass-card p-6 space-y-4 border-indigo-500/10 bg-indigo-500/[0.005]">
+          <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+            <div className="h-5 w-5 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+              <svg className="h-3.5 w-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            AI Quantitative Probability Engine (Calibrated Horizons)
+          </h4>
+          <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+            Horizon-based probabilistic forecasts calculated using historical returns volatility, fundamental quality shifts, and technical breakouts.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {report.probability_horizons.map((horizon, idx) => {
+              const pct = horizon.probability;
+              const probColors = pct >= 75 ? "text-emerald-400" : pct >= 50 ? "text-blue-400" : pct >= 30 ? "text-yellow-400" : "text-rose-400";
+              const probBg = pct >= 75 ? "bg-emerald-500/10 border-emerald-500/20" : pct >= 50 ? "bg-blue-500/10 border-blue-500/20" : pct >= 30 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-rose-500/10 border-rose-500/20";
+              return (
+                <div key={idx} className="relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.01] p-4 flex flex-col justify-between space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">{horizon.horizon}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-extrabold border ${probBg} ${probColors}`}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white font-semibold leading-snug">{horizon.output}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="h-1.5 w-full bg-white/5 rounded overflow-hidden">
+                      <div
+                        className={`h-full rounded ${pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : pct >= 30 ? "bg-yellow-500" : "bg-rose-500"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 2. THREE-AGENT DATA CONTRIBUTION DETAILS */}
       <div className="glass-card p-6 space-y-4">
