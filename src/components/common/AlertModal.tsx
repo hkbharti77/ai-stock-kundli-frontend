@@ -10,6 +10,11 @@ interface AlertModalProps {
   type?: "success" | "error" | "info";
 }
 
+/**
+ * Global reusable alert/feedback modal.
+ * Used across: StockDetailsClient (stock detail page).
+ * Pure UI — no business logic, no API calls. Accepts props only.
+ */
 export default function AlertModal({
   isOpen,
   onClose,

@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslation } from "../../../../context/LanguageContext";
-import LanguageSelector from "../../../../components/LanguageSelector";
-import SearchAutocomplete from "../../../../components/SearchAutocomplete";
-import AlertModal from "../../../../components/AlertModal";
+import LanguageSelector from "../../../../components/common/LanguageSelector";
+import SearchAutocomplete from "../../../../components/common/SearchAutocomplete";
+import AlertModal from "../../../../components/common/AlertModal";
+import Spinner from "../../../../components/common/Spinner";
 
 // Import modular extracted sub-components
 import FinancialVisualizer from "./components/FinancialVisualizer";
@@ -132,6 +133,136 @@ export default function StockDetailsClient() {
   const [rateLimited, setRateLimited] = useState(false);
   const [signalHistory, setSignalHistory] = useState<any[]>([]);
   const [reportLang, setReportLang] = useState<"en" | "hi">("en");
+
+  // Live Ticker & Intraday 5M States
+  const [chartInterval, setChartInterval] = useState<"1D" | "5M">("1D");
+  const [intradayPrices, setIntradayPrices] = useState<PriceRecord[]>([]);
+  const [lastLivePrice, setLastLivePrice] = useState<number | null>(null);
+  const [priceFlash, setPriceFlash] = useState<"up" | "down" | null>(null);
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+
+  const isPremium = user?.plan === "pro" || user?.plan === "advisor";
+
+  const fetchIntradayPrices = async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const url = `${apiUrl}/api/v1/companies/${ticker}/intraday?user_id=${user.id}`;
+      const res = await fetch(url, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.prices) {
+          const formatted = data.prices.map((p: any) => ({
+            date: p.timestamp,
+            open: p.open,
+            high: p.high,
+            low: p.low,
+            close: p.close,
+            volume: p.volume,
+            rsi: p.rsi,
+            vwap: p.vwap
+          }));
+          setIntradayPrices(formatted);
+          if (formatted.length > 0) {
+            setLastLivePrice(formatted[formatted.length - 1].close);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching intraday prices:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isPremium && user) {
+      fetchIntradayPrices();
+    }
+  }, [user, ticker]);
+
+  useEffect(() => {
+    if (!isPremium || !user?.id) return;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectWS = () => {
+      const wsUrl = `ws://localhost:8000/api/v1/companies/${ticker}/live?user_id=${user.id}`;
+      console.log("[WS Price] Connecting to:", wsUrl);
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("[WS Price] Connected successfully");
+        setWsConnected(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "price_update" && data.ticker === ticker) {
+            const bar = data.data;
+            const newPrice = bar.close;
+            
+            setLastLivePrice((prev) => {
+              if (prev !== null) {
+                if (newPrice > prev) {
+                  setPriceFlash("up");
+                } else if (newPrice < prev) {
+                  setPriceFlash("down");
+                }
+                setTimeout(() => setPriceFlash(null), 1000);
+              }
+              return newPrice;
+            });
+
+            setIntradayPrices((prev) => {
+              const existingIdx = prev.findIndex((p) => p.date === bar.timestamp);
+              const newRecord = {
+                date: bar.timestamp,
+                open: bar.open,
+                high: bar.high,
+                low: bar.low,
+                close: bar.close,
+                volume: bar.volume,
+                rsi: bar.rsi,
+                vwap: bar.vwap
+              };
+
+              if (existingIdx !== -1) {
+                const updated = [...prev];
+                updated[existingIdx] = newRecord;
+                return updated;
+              } else {
+                return [...prev, newRecord];
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("[WS Price] Parse error:", err);
+        }
+      };
+
+      ws.onclose = (event) => {
+        console.log("[WS Price] Closed:", event.code, event.reason);
+        setWsConnected(false);
+        if (event.code !== 4003) {
+          reconnectTimeout = setTimeout(connectWS, 5000);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error("[WS Price] Socket error:", err);
+      };
+    };
+
+    connectWS();
+
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
+  }, [user, ticker]);
 
   const logTelemetryEvent = async (eventName: string, eventData: any = {}) => {
     try {
@@ -593,13 +724,7 @@ export default function StockDetailsClient() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-navy-950">
-        <div className="flex flex-col items-center gap-4">
-          <svg className="h-8 w-8 animate-spin text-electric-400" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <span className="text-gray-400">{t("common.loading") || "Fetching real-time market data..."}</span>
-        </div>
+        <Spinner size="h-8 w-8" color="text-electric-400" label={t("common.loading") || "Fetching real-time market data..."} />
       </div>
     );
   }
@@ -687,10 +812,7 @@ export default function StockDetailsClient() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
                   ) : isActive ? (
-                    <svg className="w-4 h-4 animate-spin text-electric-400 shrink-0" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                    <Spinner size="w-4 h-4" color="text-electric-400" />
                   ) : (
                     <span className="w-4 h-4 flex items-center justify-center text-[10px] text-gray-600 shrink-0">{stepNum}</span>
                   )}
@@ -722,11 +844,36 @@ export default function StockDetailsClient() {
   const latestPrice = priceList[priceList.length - 1];
   const firstPrice = priceList[0];
 
-  const priceChange = latestPrice && firstPrice ? latestPrice.close - firstPrice.close : 0;
-  const priceChangePct = latestPrice && firstPrice ? (priceChange / firstPrice.close) * 100 : 0;
+  const getPriceMetrics = () => {
+    const list = chartInterval === "5M" && isPremium ? intradayPrices : priceList;
+    if (list.length < 2) {
+      const singlePrice = list[0] || latestPrice;
+      return { 
+        change: 0, 
+        pct: 0, 
+        high: singlePrice ? singlePrice.high : 0, 
+        low: singlePrice ? singlePrice.low : 0 
+      };
+    }
+    
+    const latest = list[list.length - 1];
+    const first = list[0];
+    const change = latest.close - first.close;
+    const pct = (change / first.close) * 100;
+    
+    const highs = list.map(p => p.high);
+    const lows = list.map(p => p.low);
+    const high = Math.max(...highs);
+    const low = Math.min(...lows);
+    
+    return { change, pct, high, low };
+  };
 
-  const high52 = priceList.length > 0 ? Math.max(...priceList.map(p => p.high)) : 0;
-  const low52 = priceList.length > 0 ? Math.min(...priceList.map(p => p.low)) : 0;
+  const metrics = getPriceMetrics();
+  const priceChange = metrics.change;
+  const priceChangePct = metrics.pct;
+  const high52 = chartInterval === "5M" && isPremium ? metrics.high : (priceList.length > 0 ? Math.max(...priceList.map(p => p.high)) : 0);
+  const low52 = chartInterval === "5M" && isPremium ? metrics.low : (priceList.length > 0 ? Math.min(...priceList.map(p => p.low)) : 0);
 
   // Format helpers
   const formatMcap = (mcap: number | null) => {
@@ -743,33 +890,34 @@ export default function StockDetailsClient() {
 
   // Generate SVG path for the chart
   const generateChartPaths = () => {
-    if (priceList.length < 2) return { linePath: "", areaPath: "", coordinates: [] };
+    const list = chartInterval === "5M" && isPremium ? intradayPrices : priceList;
+    if (list.length < 2) return { linePath: "", areaPath: "", coordinates: [] };
 
     const width = 800;
     const height = 300;
     const padding = 15;
 
-    const maxX = priceList.length - 1;
+    const maxX = list.length - 1;
 
-    const closes = priceList.map(p => p.close);
+    const closes = list.map(p => p.close);
     const minY = Math.min(...closes);
     const maxY = Math.max(...closes);
 
     const rangeY = maxY - minY || 1;
 
-    const coordinates = priceList.map((p, index) => {
+    const coords = list.map((p, index) => {
       const x = padding + (index / maxX) * (width - 2 * padding);
       const y = height - padding - ((p.close - minY) / rangeY) * (height - 2 * padding);
       return { x, y, price: p };
     });
 
-    const linePath = coordinates.reduce((path, point, index) => {
+    const lPath = coords.reduce((path, point, index) => {
       return index === 0 ? `M ${point.x} ${point.y}` : `${path} L ${point.x} ${point.y}`;
     }, "");
 
-    const areaPath = `${linePath} L ${coordinates[coordinates.length - 1].x} ${height - padding} L ${coordinates[0].x} ${height - padding} Z`;
+    const aPath = `${lPath} L ${coords[coords.length - 1].x} ${height - padding} L ${coords[0].x} ${height - padding} Z`;
 
-    return { linePath, areaPath, coordinates };
+    return { linePath: lPath, areaPath: aPath, coordinates: coords };
   };
 
   const { linePath, areaPath, coordinates } = generateChartPaths();
@@ -804,7 +952,11 @@ export default function StockDetailsClient() {
   };
 
   const getActivePrice = () => {
-    return hoveredPrice || latestPrice;
+    if (hoveredPrice) return hoveredPrice;
+    if (chartInterval === "5M" && isPremium && intradayPrices.length > 0) {
+      return intradayPrices[intradayPrices.length - 1];
+    }
+    return latestPrice;
   };
 
   // Kundli Analysis Score generator based on parsed ratios
@@ -905,12 +1057,29 @@ export default function StockDetailsClient() {
               </p>
             </div>
 
-            {/* Price display block */}
+             {/* Price display block */}
             <div className="text-left md:text-right shrink-0">
-              <p className="text-xs text-gray-500 font-medium">
-                {hoveredPrice ? "HOVERED CLOSE PRICE" : "LATEST CLOSE PRICE"}
-              </p>
-              <div className="flex items-baseline md:justify-end gap-2 mt-0.5">
+              <div className="flex items-center md:justify-end gap-1.5 mb-1.5">
+                {isPremium && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                    wsConnected ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25" : "bg-gray-500/10 text-gray-400 border border-white/5"
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${wsConnected ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`} />
+                    {wsConnected ? "LIVE 5M" : "OFFLINE"}
+                  </span>
+                )}
+                <p className="text-xs text-gray-500 font-medium">
+                  {hoveredPrice 
+                    ? "HOVERED CLOSE PRICE" 
+                    : chartInterval === "5M" && isPremium 
+                      ? "LIVE INTRADAY PRICE" 
+                      : "LATEST CLOSE PRICE"}
+                </p>
+              </div>
+              <div className={`flex items-baseline md:justify-end gap-2 mt-0.5 transition-all duration-300 rounded-lg px-2 py-1 ${
+                priceFlash === "up" ? "bg-emerald-500/15 ring-1 ring-emerald-500/30" : 
+                priceFlash === "down" ? "bg-rose-500/15 ring-1 ring-rose-500/30" : ""
+              }`}>
                 <span className="text-3xl font-mono font-bold">
                   ₹{getActivePrice()?.close?.toFixed(2) || "—"}
                 </span>
@@ -920,10 +1089,12 @@ export default function StockDetailsClient() {
               </div>
               <p className="text-xs text-gray-600 mt-1">
                 {hoveredPrice
-                  ? `As of ${new Date(hoveredPrice.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
-                  : latestPrice
-                    ? `As of ${new Date(latestPrice.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
-                    : "—"
+                  ? `As of ${new Date(hoveredPrice.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                  : chartInterval === "5M" && isPremium && getActivePrice()
+                    ? `As of ${new Date(getActivePrice().date).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                    : latestPrice
+                      ? `As of ${new Date(latestPrice.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+                      : "—"
                 }
               </p>
             </div>
@@ -1053,71 +1224,182 @@ export default function StockDetailsClient() {
             {/* TAB CONTENTS */}
             {activeTab === "chart" && (
               <div className="glass-card p-6 relative">
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
-                    <h3 className="text-md font-semibold text-white">Interactive Daily Candles</h3>
-                    <p className="text-xs text-gray-500">Showing historical line chart based on 1-year Yahoo Finance pricing candles</p>
+                    <h3 className="text-md font-semibold text-white">
+                      {chartInterval === "1D" ? "Interactive Daily Candles" : "Real-Time 5m Intraday Candles"}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {chartInterval === "1D" 
+                        ? "Showing historical line chart based on 1-year Yahoo Finance pricing candles"
+                        : "Streaming live 5-minute OHLCV, RSI, and VWAP bars"}
+                    </p>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="badge-blue text-[10px]">1 YEAR</span>
+                  {/* Interval Selector */}
+                  <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5 self-start">
+                    <button
+                      onClick={() => setChartInterval("1D")}
+                      className={`px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider transition ${
+                        chartInterval === "1D"
+                          ? "bg-electric-500 text-white shadow-md shadow-electric-500/10"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Daily (1Y)
+                    </button>
+                    <button
+                      onClick={() => setChartInterval("5M")}
+                      className={`px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider transition ${
+                        chartInterval === "5M"
+                          ? "bg-electric-500 text-white shadow-md shadow-electric-500/10"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Intraday (5M)
+                    </button>
                   </div>
                 </div>
 
-                {coordinates.length > 0 ? (
-                  <div className="relative">
-                    <svg
-                      viewBox="0 0 800 300"
-                      className="w-full h-auto cursor-crosshair"
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={handleMouseLeave}
+                {chartInterval === "5M" && !isPremium ? (
+                  /* Premium warning banner */
+                  <div className="glass-card p-8 border border-indigo-500/30 bg-indigo-950/20 relative overflow-hidden rounded-xl text-center space-y-4">
+                    <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 mx-auto">
+                      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block">PRO+ FEATURE REQUIRED</span>
+                    <h3 className="text-lg font-bold text-white">Live 5-Minute Market Streams</h3>
+                    <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
+                      Real-time intraday charting, indicators (RSI/VWAP), and WebSocket ticker loops are restricted to premium subscribers. Upgrade to Pro+ now to unlock sub-minute streams.
+                    </p>
+                    <button
+                      onClick={() => handleUpgrade("pro")}
+                      className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/10"
                     >
-                      <defs>
-                        <linearGradient id="chart-area-grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25" />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-
-                      {/* Grid Lines */}
-                      <line x1="15" y1="75" x2="785" y2="75" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                      <line x1="15" y1="150" x2="785" y2="150" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                      <line x1="15" y1="225" x2="785" y2="225" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-
-                      {/* Area Under Path */}
-                      <path d={areaPath} fill="url(#chart-area-grad)" />
-
-                      {/* Sparkline Path */}
-                      <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" />
-
-                      {/* Interactive Crosshair & Indicator dot */}
-                      {hoverIndex !== null && coordinates[hoverIndex] && (
-                        <>
-                          <line
-                            x1={coordinates[hoverIndex].x}
-                            y1="15"
-                            x2={coordinates[hoverIndex].x}
-                            y2="285"
-                            stroke="rgba(99, 102, 241, 0.4)"
-                            strokeWidth="1.5"
-                            strokeDasharray="4 4"
-                          />
-                          <circle
-                            cx={coordinates[hoverIndex].x}
-                            cy={coordinates[hoverIndex].y}
-                            r="6"
-                            fill="#6366f1"
-                            stroke="#ffffff"
-                            strokeWidth="2"
-                            className="animate-pulse"
-                          />
-                        </>
-                      )}
-                    </svg>
+                      Upgrade to Pro
+                    </button>
                   </div>
                 ) : (
-                  <div className="h-60 flex items-center justify-center text-sm text-gray-500">
-                    No historical prices available for this company.
-                  </div>
+                  /* Render the active chart */
+                  coordinates.length > 0 ? (
+                    <div className="relative">
+                      {/* Technical overlay metrics if on 5M */}
+                      {chartInterval === "5M" && getActivePrice() && (
+                        <div className="flex flex-wrap items-center gap-4 mb-3 text-[11px] font-mono text-gray-400 bg-white/[0.02] border border-white/5 p-2 rounded-lg">
+                          <div>
+                            RSI: <span className={`font-bold ${(getActivePrice() as any).rsi > 70 ? "text-rose-400" : (getActivePrice() as any).rsi < 30 ? "text-emerald-400" : "text-electric-400"}`}>
+                              {((getActivePrice() as any).rsi ?? 50.0).toFixed(2)}
+                            </span>
+                          </div>
+                          <div>
+                            VWAP: <span className="text-white font-bold">
+                              ₹{((getActivePrice() as any).vwap ?? getActivePrice().close).toFixed(2)}
+                            </span>
+                          </div>
+                          <div>
+                            VOL: <span className="text-white font-bold">
+                              {getActivePrice().volume.toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <svg
+                        viewBox="0 0 800 300"
+                        className="w-full h-auto cursor-crosshair"
+                        onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <defs>
+                          <linearGradient id="chart-area-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
+                          </linearGradient>
+                          {/* VWAP gradient or line color */}
+                          <linearGradient id="vwap-line-grad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.8" />
+                            <stop offset="100%" stopColor="#d97706" stopOpacity="0.8" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Grid Lines */}
+                        <line x1="15" y1="75" x2="785" y2="75" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                        <line x1="15" y1="150" x2="785" y2="150" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                        <line x1="15" y1="225" x2="785" y2="225" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+
+                        {/* Area Under Close Path */}
+                        <path d={areaPath} fill="url(#chart-area-grad)" />
+
+                        {/* Close Sparkline Path */}
+                        <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" />
+
+                        {/* Render VWAP path if chartInterval is 5M */}
+                        {chartInterval === "5M" && (() => {
+                          const list = intradayPrices;
+                          if (list.length < 2) return null;
+                          const width = 800;
+                          const height = 300;
+                          const padding = 15;
+                          const maxX = list.length - 1;
+                          const closes = list.map(p => p.close);
+                          const minY = Math.min(...closes);
+                          const maxY = Math.max(...closes);
+                          const rangeY = maxY - minY || 1;
+                          
+                          const vwapCoordinates = list.map((p: any, index) => {
+                            const x = padding + (index / maxX) * (width - 2 * padding);
+                            const val = p.vwap ?? p.close;
+                            const y = height - padding - ((val - minY) / rangeY) * (height - 2 * padding);
+                            return { x, y };
+                          });
+
+                          const vwapPath = vwapCoordinates.reduce((path, point, index) => {
+                            return index === 0 ? `M ${point.x} ${point.y}` : `${path} L ${point.x} ${point.y}`;
+                          }, "");
+
+                          return (
+                            <path d={vwapPath} fill="none" stroke="url(#vwap-line-grad)" strokeWidth="1.5" strokeDasharray="3 3" />
+                          );
+                        })()}
+
+                        {/* Interactive Crosshair & Indicator dot */}
+                        {hoverIndex !== null && coordinates[hoverIndex] && (
+                          <>
+                            <line
+                              x1={coordinates[hoverIndex].x}
+                              y1="15"
+                              x2={coordinates[hoverIndex].x}
+                              y2="285"
+                              stroke="rgba(99, 102, 241, 0.4)"
+                              strokeWidth="1.5"
+                              strokeDasharray="4 4"
+                            />
+                            <circle
+                              cx={coordinates[hoverIndex].x}
+                              cy={coordinates[hoverIndex].y}
+                              r="6"
+                              fill="#6366f1"
+                              stroke="#ffffff"
+                              strokeWidth="2"
+                              className="animate-pulse"
+                            />
+                          </>
+                        )}
+                      </svg>
+
+                      {chartInterval === "5M" && (
+                        <div className="mt-2 text-right text-[10px] text-gray-500 font-mono flex items-center justify-end gap-2">
+                          <span className="inline-block w-2.5 h-0.5 border-t border-dashed border-amber-500" /> VWAP Trendline
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-60 flex items-center justify-center text-sm text-gray-500">
+                      No prices available for this company in this view.
+                    </div>
+                  )
                 )}
               </div>
             )}
@@ -1193,7 +1475,7 @@ export default function StockDetailsClient() {
                   </div>
                 ) : loadingKundliReport && !kundliReport ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+                    <Spinner size="h-12 w-12" color="text-emerald-400" />
                     <h3 className="text-md font-semibold text-white">Aggregating AI Stock Kundli Report...</h3>
                     <p className="text-xs text-gray-500 max-w-sm">
                       Running consensus engine across fundamental health, technical indicators, and news sentiment trackers. Please wait...
@@ -1203,7 +1485,7 @@ export default function StockDetailsClient() {
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
                     <p className="text-xs text-gray-400">Kundli Report could not be loaded for {profile?.name || ticker}.</p>
                     <button
-                      onClick={fetchKundliReport}
+                      onClick={() => fetchKundliReport()}
                       className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-600 transition"
                     >
                       Trigger Consensus Report
@@ -1299,7 +1581,7 @@ export default function StockDetailsClient() {
                 {/* Loader or Stale Agent fallback state */}
                 {loadingAgent && !agentOutput ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-full border-4 border-electric-500/20 border-t-electric-500 animate-spin" />
+                    <Spinner size="h-12 w-12" color="text-electric-400" />
                     <h3 className="text-md font-semibold text-white">AI Kundli Analyst Engine Active...</h3>
                     <p className="text-xs text-gray-500 max-w-sm">
                       Running multi-period 10-year financials calculations, capital structure analysis, and generating detailed Hinglish investment thesis via DeepSeek. Please wait...
@@ -1452,7 +1734,7 @@ export default function StockDetailsClient() {
                 {/* Loader or Stale Agent fallback state */}
                 {loadingTechnicalIndicators && !technicalIndicators ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-full border-4 border-electric-500/20 border-t-electric-500 animate-spin" />
+                    <Spinner size="h-12 w-12" color="text-electric-400" />
                     <h3 className="text-md font-semibold text-white">Calculating Technical Indicators...</h3>
                     <p className="text-xs text-gray-500 max-w-sm">
                       Running EMA, SMA, VWAP, Bollinger Bands, RSI, MACD, and Relative Strength indicators in a real-time pandas-ta engine. Please wait...
@@ -1474,7 +1756,7 @@ export default function StockDetailsClient() {
 
                 {loadingTechnical && !technicalAnalysis ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-full border-4 border-purple-500/20 border-t-purple-500 animate-spin" />
+                    <Spinner size="h-12 w-12" color="text-purple-400" />
                     <h3 className="text-md font-semibold text-white">AI Technical Analyst Engine Active...</h3>
                     <p className="text-xs text-gray-500 max-w-sm">
                       Analyzing trendlines, support/resistance clusters, candlestick patterns, and generating technical thesis. Please wait...
@@ -1501,7 +1783,7 @@ export default function StockDetailsClient() {
               <div className="space-y-6">
                 {loadingNews && !newsData ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-full border-4 border-rose-500/20 border-t-rose-500 animate-spin" />
+                    <Spinner size="h-12 w-12" color="text-rose-400" />
                     <h3 className="text-md font-semibold text-white">News Analyst Engine Active...</h3>
                     <p className="text-xs text-gray-500 max-w-sm">
                       Fetching and classifying news from Economic Times, Mint, BSE, NSE, and Yahoo Finance. Running sentiment analysis...

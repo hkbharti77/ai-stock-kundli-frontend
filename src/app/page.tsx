@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useTranslation } from "../context/LanguageContext";
-import LanguageSelector from "../components/LanguageSelector";
+import LanguageSelector from "../components/common/LanguageSelector";
 
 /* ═══════════════════════════════════════════════════════════
    AI Stock Kundli — Landing Page

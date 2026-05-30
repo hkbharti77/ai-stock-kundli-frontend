@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../context/LanguageContext";
-import LanguageSelector from "../../components/LanguageSelector";
+import LanguageSelector from "../../components/common/LanguageSelector";
 
 /* ═══════════════════════════════════════════════════════════
    AI Stock Kundli — 4-Step Registration Wizard

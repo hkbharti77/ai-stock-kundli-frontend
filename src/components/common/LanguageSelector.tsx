@@ -1,8 +1,13 @@
 "use client";
 
-import { useTranslation, Language } from "../context/LanguageContext";
+import { useTranslation, Language } from "../../context/LanguageContext";
 import { useState } from "react";
 
+/**
+ * Global reusable language selector dropdown.
+ * Used across: landing page, dashboard, methodology page, stock detail page.
+ * Pure UI — no business logic, no API calls. Reads/writes language context.
+ */
 export default function LanguageSelector() {
   const { language, setLanguage } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);

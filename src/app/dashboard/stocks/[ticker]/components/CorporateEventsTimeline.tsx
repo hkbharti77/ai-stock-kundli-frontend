@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Spinner from "../../../../../components/common/Spinner";
 
 interface CorporateEvent {
   id: number;
@@ -90,8 +91,7 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-        <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Compiling corporate actions and social matrix...</span>
+        <Spinner size="w-8 h-8" color="text-indigo-400" label="Compiling corporate actions and social matrix..." />
       </div>
     );
   }

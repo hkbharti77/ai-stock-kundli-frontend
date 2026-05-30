@@ -1,0 +1,13 @@
+export default function PrivacyPage() {
+  return (
+    <div className="min-h-screen bg-[#070913] text-white flex items-center justify-center p-10">
+      <div className="max-w-2xl space-y-4 text-center">
+        <h1 className="text-3xl font-extrabold">Privacy Policy</h1>
+        <p className="text-gray-400 text-sm leading-relaxed">
+          This page is under construction. Please check back later for the full
+          AI Stock Kundli privacy policy and data handling disclosures.
+        </p>
+      </div>
+    </div>
+  );
+}

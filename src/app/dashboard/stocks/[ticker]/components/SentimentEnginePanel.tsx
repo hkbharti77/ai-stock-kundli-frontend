@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Spinner from "../../../../../components/common/Spinner";
 
 interface SentimentScore {
   date: string;
@@ -60,8 +61,7 @@ export default function SentimentEnginePanel({ ticker }: SentimentEnginePanelPro
   if (loading) {
     return (
       <div className="glass-card p-12 flex flex-col items-center justify-center space-y-4 min-h-[400px]">
-        <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" />
-        <p className="text-slate-400 text-xs font-semibold animate-pulse">Running FinBERT Sentiment Model...</p>
+        <Spinner size="w-10 h-10" color="text-indigo-400" label="Running FinBERT Sentiment Model..." />
       </div>
     );
   }

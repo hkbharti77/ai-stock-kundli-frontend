@@ -138,3 +138,32 @@ body {
   animation: marquee 45s linear infinite;
 }
 
+/* ── Dynamic Branding Theme Overrides ───────────────────── */
+.btn-primary {
+  background: linear-gradient(135deg, var(--brand-color, #3b82f6) 0%, var(--brand-color-secondary, #14b8a6) 100%) !important;
+  box-shadow: 0 10px 15px -3px var(--brand-color, rgba(59, 130, 246, 0.25)) !important;
+}
+.btn-primary:hover {
+  box-shadow: 0 10px 20px -3px var(--brand-color, rgba(59, 130, 246, 0.4)) !important;
+}
+.gradient-text {
+  background: linear-gradient(to right, var(--brand-color, #60A5FA), var(--brand-color-secondary, #3B82F6)) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+.text-electric-400 {
+  color: var(--brand-color, #60A5FA) !important;
+}
+.bg-electric-400 {
+  background-color: var(--brand-color, #60A5FA) !important;
+}
+.bg-electric-500 {
+  background-color: var(--brand-color, #3B82F6) !important;
+}
+.border-electric-500\/30:hover {
+  border-color: var(--brand-color, #3B82F6) !important;
+}
+
+

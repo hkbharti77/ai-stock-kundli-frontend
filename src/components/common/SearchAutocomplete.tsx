@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../../context/LanguageContext";
 
 interface CompanyResult {
   ticker: string;
@@ -13,6 +13,11 @@ interface CompanyResult {
   sector: string | null;
 }
 
+/**
+ * Global reusable stock search autocomplete with debounced API lookup.
+ * Used across: dashboard nav, stock detail page nav.
+ * Contains API call to /api/v1/companies/search (intentional — core functionality of this widget).
+ */
 export default function SearchAutocomplete() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -40,7 +45,7 @@ export default function SearchAutocomplete() {
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-        
+
         const response = await fetch(
           `${apiUrl}/api/v1/companies/search?q=${encodeURIComponent(query)}`,
           { headers }

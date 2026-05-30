@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "../context/LanguageContext";
+import { BrandingProvider } from "../context/BrandingContext";
 
 export const metadata: Metadata = {
   title: "AI Stock Kundli — Enterprise Investment Intelligence",
@@ -25,7 +26,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-noise min-h-screen antialiased">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <BrandingProvider>
+            {children}
+          </BrandingProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
