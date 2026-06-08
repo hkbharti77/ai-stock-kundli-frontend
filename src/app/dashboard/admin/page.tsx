@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../../context/LanguageContext";
-import LanguageSelector from "../../../components/common/LanguageSelector";
+import Header from "../../../components/common/Header";
 import Spinner from "../../../components/common/Spinner";
 import { useBranding } from "../../../context/BrandingContext";
+import AlertModal from "../../../components/common/AlertModal";
 import {
   AreaChart,
   Area,
@@ -155,6 +156,11 @@ export default function EnterpriseAdminDashboard() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [indexStatus, setIndexStatus] = useState<any>(null);
+  const [indexingLoading, setIndexingLoading] = useState(false);
+
+  // Access denied modal state
+  const [accessDeniedOpen, setAccessDeniedOpen] = useState(false);
 
   const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -176,8 +182,7 @@ export default function EnterpriseAdminDashboard() {
       })
       .then((data) => {
         if (data.role !== "SuperAdmin" && data.role !== "OrgAdmin") {
-          alert("Access Denied: Administrative permissions required.");
-          router.push("/dashboard");
+          setAccessDeniedOpen(true);
           return;
         }
         setCurrentUser(data);
@@ -219,6 +224,18 @@ export default function EnterpriseAdminDashboard() {
         if (resMon.ok) {
           const mData = await resMon.json();
           setMonitoring(mData);
+        }
+
+        try {
+          const resIdx = await fetch(`${getApiUrl()}/api/v1/query/index`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (resIdx.ok) {
+            const idxData = await resIdx.json();
+            setIndexStatus(idxData);
+          }
+        } catch (e) {
+          console.warn("Could not fetch index status:", e);
         }
       } else if (tab === "tenants") {
         if (currentUser?.role === "SuperAdmin") {
@@ -372,6 +389,30 @@ export default function EnterpriseAdminDashboard() {
       setErrorMsg(err.message || "Error updating branding.");
     } finally {
       setLoadingAction(false);
+    }
+  };
+
+  const handleTriggerIndexing = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIndexingLoading(true);
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${getApiUrl()}/api/v1/query/index`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error("Triggering indexing failed.");
+      }
+      const data = await res.json();
+      setIndexStatus(data);
+      setSuccessMsg("Research Database incrementally re-indexed successfully!");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to trigger re-indexing.");
+    } finally {
+      setIndexingLoading(false);
     }
   };
 
@@ -539,6 +580,23 @@ export default function EnterpriseAdminDashboard() {
 
   const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#14b8a6"];
 
+  if (accessDeniedOpen) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-noise">
+        <AlertModal
+          isOpen={accessDeniedOpen}
+          onClose={() => {
+            setAccessDeniedOpen(false);
+            router.push("/dashboard");
+          }}
+          title="Access Denied"
+          message="Access Denied: Administrative permissions required."
+          type="error"
+        />
+      </div>
+    );
+  }
+
   if (loadingUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-noise">
@@ -554,44 +612,6 @@ export default function EnterpriseAdminDashboard() {
         <div className="absolute -top-40 left-20 h-[500px] w-[500px] rounded-full bg-electric-500/[0.04] blur-[150px]" />
         <div className="absolute bottom-10 right-10 h-[400px] w-[400px] rounded-full bg-indigo-500/[0.03] blur-[120px]" />
       </div>
-
-      {/* Admin Navbar */}
-      <nav className="relative z-20 border-b border-white/5 bg-navy-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5">
-              {appBranding.logo_url ? (
-                <img src={appBranding.logo_url} alt="Logo" className="h-7 w-7 rounded object-cover" />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-electric-500 to-electric-600">
-                  <span className="text-sm font-bold text-white">K</span>
-                </div>
-              )}
-              <span className="text-base font-bold text-white">{appBranding.brand_name}</span>
-            </Link>
-            <Link href="/dashboard" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              🏠 Dashboard Home
-            </Link>
-            <Link href="/dashboard/portfolio" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              💼 Portfolio Advisor
-            </Link>
-            <Link href="/dashboard/developer" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              ⚡ Developer Portal
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="badge bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20 font-bold uppercase tracking-wider text-[10px]">
-              🔒 PLATFORM {currentUser?.role}
-            </span>
-            <span className="text-xs text-gray-400 font-semibold">{currentUser?.email}</span>
-            <LanguageSelector />
-            <button onClick={handleLogout} className="nav-link text-xs hover:text-rose-400 font-semibold">
-              {t("common.logout")}
-            </button>
-          </div>
-        </div>
-      </nav>
 
       {/* Main Console */}
       <main className="relative z-10 mx-auto max-w-7xl px-6 py-8">
@@ -847,6 +867,54 @@ export default function EnterpriseAdminDashboard() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Research Database Indexing & Maintenance Control */}
+            <div className="glass-card p-6 border-white/10 bg-white/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-md font-bold text-white flex items-center gap-2">
+                    📂 Research Database Status & Control
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Monitor semantic search vectors and trigger incremental database re-indexing.
+                  </p>
+                </div>
+                <button
+                  onClick={handleTriggerIndexing}
+                  disabled={indexingLoading}
+                  className="px-4 py-2 bg-electric-500 text-white rounded-lg text-xs font-semibold hover:bg-electric-600 disabled:bg-gray-700 disabled:text-gray-400 transition shadow-lg shadow-electric-500/20 shrink-0"
+                >
+                  {indexingLoading ? "⏳ Indexing Database..." : "🔄 Trigger Re-indexing"}
+                </button>
+              </div>
+              
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col justify-between">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Companies Tracked</div>
+                  <div className="text-2xl font-extrabold text-white mt-1">
+                    {indexStatus ? indexStatus.companies_indexed : "Loading..."}
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col justify-between">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">News Articles Indexed</div>
+                  <div className="text-2xl font-extrabold text-white mt-1">
+                    {indexStatus ? indexStatus.news_indexed : "Loading..."}
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col justify-between">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Total Embeddings</div>
+                  <div className="text-2xl font-extrabold text-white mt-1">
+                    {indexStatus ? indexStatus.total_indexed.toLocaleString() : "Loading..."}
+                  </div>
+                </div>
+              </div>
+              {indexStatus?.last_updated && (
+                <div className="mt-4 text-[10px] text-gray-400 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Last Updated: {new Date(indexStatus.last_updated).toLocaleString()}
+                </div>
+              )}
             </div>
           </div>
         )}

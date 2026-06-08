@@ -78,6 +78,78 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const paragraphs = normalized.split(/\n\n+/);
+    return paragraphs.map((para, i) => {
+      const trimmed = para.trim();
+      if (!trimmed) return null;
+
+      // Headers
+      if (trimmed.startsWith("# ")) {
+        return (
+          <h3 key={i} className="text-base font-bold text-slate-100 pt-3 tracking-tight border-b border-white/5 pb-1">
+            {trimmed.replace("# ", "").replace(/\*\*/g, "")}
+          </h3>
+        );
+      }
+      if (trimmed.startsWith("## ")) {
+        return (
+          <h3 key={i} className="text-sm font-bold text-slate-100 pt-2 tracking-tight">
+            {trimmed.replace("## ", "").replace(/\*\*/g, "")}
+          </h3>
+        );
+      }
+      if (trimmed.startsWith("### ")) {
+        return (
+          <h4 key={i} className="text-xs font-semibold text-slate-100 pt-2 tracking-tight">
+            {trimmed.replace("### ", "").replace(/\*\*/g, "")}
+          </h4>
+        );
+      }
+      if (trimmed.startsWith("#### ")) {
+        return (
+          <h5 key={i} className="text-[11px] font-semibold text-slate-200 pt-1 tracking-tight">
+            {trimmed.replace("#### ", "").replace(/\*\*/g, "")}
+          </h5>
+        );
+      }
+
+      // Lists
+      if (trimmed.startsWith("*") || trimmed.startsWith("-")) {
+        return (
+          <ul key={i} className="space-y-2 pl-4 list-disc text-xs text-slate-300">
+            {trimmed.split("\n").map((li, idx) => (
+              <li 
+                key={idx} 
+                className="pl-1 leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: li.replace(/^[\*\-]\s*/, "")
+                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                            .replace(/\*(.*?)\*/g, "<em>$1</em>")
+                }}
+              />
+            ))}
+          </ul>
+        );
+      }
+
+      // Default Paragraph
+      return (
+        <p 
+          key={i} 
+          className="text-xs text-slate-400 leading-relaxed font-normal"
+          dangerouslySetInnerHTML={{
+            __html: trimmed
+              .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+              .replace(/\*(.*?)\*/g, "<em>$1</em>")
+          }}
+        />
+      );
+    });
+  };
+
   useEffect(() => {
     async function fetchPeers() {
       try {
@@ -261,44 +333,13 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
           <span>Expert Benchmarking Analysis</span>
         </h3>
         <div className="prose prose-invert prose-xs text-slate-300 max-w-none leading-relaxed space-y-4">
-          {(agentData?.reasoning || `### Sector Competitive Positioning Analysis
+          {renderMarkdown(agentData?.reasoning || `### Sector Competitive Positioning Analysis
 
 Our AI Sector Benchmarking Analyst has conducted a thorough relative positioning check for **${ticker}** against its top direct competitors. 
 
 * **Capital Allocation:** The company demonstrates resilient capital efficiency profile compared to peer group averages, indicating standard return spreads.
 * **Margin Resiliency:** Operating margins remain well-aligned with industry standards, showcasing pricing power and sound execution.
-* **Leverage Balance:** Financial health is highly robust with leverage profiles safely below cautionary benchmarks.`).split("\n\n").map((para, i) => {
-            if (para.startsWith("###")) {
-              return (
-                <h4 key={i} className="text-base font-semibold text-slate-100 pt-2 tracking-tight">
-                  {para.replace("###", "").trim()}
-                </h4>
-              );
-            }
-            if (para.startsWith("####")) {
-              return (
-                <h5 key={i} className="text-sm font-semibold text-slate-200 pt-1 tracking-tight">
-                  {para.replace("####", "").trim()}
-                </h5>
-              );
-            }
-            if (para.startsWith("*") || para.startsWith("-")) {
-              return (
-                <ul key={i} className="space-y-2 pl-4 list-disc text-xs text-slate-300">
-                  {para.split("\n").map((li, idx) => (
-                    <li key={idx} className="pl-1 leading-relaxed">
-                      {li.replace(/^[\*\-]\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}
-                    </li>
-                  ))}
-                </ul>
-              );
-            }
-            return (
-              <p key={i} className="text-xs text-slate-400 leading-relaxed font-normal">
-                {para.replace(/\*\*(.*?)\*\*/g, "$1")}
-              </p>
-            );
-          })}
+* **Leverage Balance:** Financial health is highly robust with leverage profiles safely below cautionary benchmarks.`)}
         </div>
       </div>
     </div>

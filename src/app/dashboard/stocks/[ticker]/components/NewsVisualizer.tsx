@@ -236,6 +236,78 @@ export default function NewsVisualizer({
   sentimentTrend,
   newsAnalysis,
 }: NewsVisualizerProps) {
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const paragraphs = normalized.split(/\n\n+/);
+    return paragraphs.map((para, i) => {
+      const trimmed = para.trim();
+      if (!trimmed) return null;
+
+      // Headers
+      if (trimmed.startsWith("# ")) {
+        return (
+          <h3 key={i} className="text-base font-bold text-slate-100 pt-3 tracking-tight border-b border-white/5 pb-1">
+            {trimmed.replace("# ", "").replace(/\*\*/g, "")}
+          </h3>
+        );
+      }
+      if (trimmed.startsWith("## ")) {
+        return (
+          <h3 key={i} className="text-sm font-bold text-slate-100 pt-2 tracking-tight">
+            {trimmed.replace("## ", "").replace(/\*\*/g, "")}
+          </h3>
+        );
+      }
+      if (trimmed.startsWith("### ")) {
+        return (
+          <h4 key={i} className="text-xs font-semibold text-slate-100 pt-2 tracking-tight">
+            {trimmed.replace("### ", "").replace(/\*\*/g, "")}
+          </h4>
+        );
+      }
+      if (trimmed.startsWith("#### ")) {
+        return (
+          <h5 key={i} className="text-[11px] font-semibold text-slate-200 pt-1 tracking-tight">
+            {trimmed.replace("#### ", "").replace(/\*\*/g, "")}
+          </h5>
+        );
+      }
+
+      // Lists
+      if (trimmed.startsWith("*") || trimmed.startsWith("-")) {
+        return (
+          <ul key={i} className="space-y-2 pl-4 list-disc text-xs text-slate-300">
+            {trimmed.split("\n").map((li, idx) => (
+              <li 
+                key={idx} 
+                className="pl-1 leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: li.replace(/^[\*\-]\s*/, "")
+                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                            .replace(/\*(.*?)\*/g, "<em>$1</em>")
+                }}
+              />
+            ))}
+          </ul>
+        );
+      }
+
+      // Default Paragraph
+      return (
+        <p 
+          key={i} 
+          className="text-xs text-slate-400 leading-relaxed font-normal"
+          dangerouslySetInnerHTML={{
+            __html: trimmed
+              .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+              .replace(/\*(.*?)\*/g, "<em>$1</em>")
+          }}
+        />
+      );
+    });
+  };
+
   const totalArticles = articles.length;
   const { positive = 0, negative = 0, neutral = 0 } = sentimentBreakdown;
   const total = Math.max(positive + negative + neutral, 1);
@@ -495,10 +567,8 @@ export default function NewsVisualizer({
             </svg>
             AI News Analyst Thesis
           </h3>
-          <div className="prose prose-invert prose-sm max-w-none">
-            <div className="text-xs text-gray-300 leading-relaxed whitespace-pre-line">
-              {newsAnalysis.reasoning}
-            </div>
+          <div className="prose prose-invert prose-sm max-w-none text-xs text-gray-300 leading-relaxed space-y-4">
+            {renderMarkdown(newsAnalysis.reasoning)}
           </div>
         </div>
       )}

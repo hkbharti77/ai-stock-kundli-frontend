@@ -51,6 +51,16 @@ interface VisualizerProps {
 }
 
 export default function KundliReportVisualizer({ report }: VisualizerProps) {
+  const parseMarkdown = (text: string | null | undefined): string => {
+    if (!text) return "";
+    return text
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/\n/g, "<br />");
+  };
+
   // Determine color matching for the score
   const getThemeColors = (score: number) => {
     if (score >= 80) return { border: "border-emerald-500/20", glow: "from-emerald-500/10 to-transparent", text: "text-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", stroke: "#10b981" };
@@ -76,11 +86,11 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
 
   return (
     <div className="space-y-6">
-      
+
       {/* 1. TOP HERO SECTION: Score Gauge, Signal Badge, and Data Completeness */}
       <div className="glass-card p-6 grid gap-6 md:grid-cols-3 items-center relative overflow-hidden">
         <div className={`absolute inset-0 bg-gradient-to-r ${colors.glow} pointer-events-none`} />
-        
+
         {/* CIRCULAR GAUGE COMPONENT */}
         <div className="flex flex-col items-center justify-center relative z-10 md:border-r border-white/5 py-4">
           <div className="relative flex items-center justify-center h-36 w-36">
@@ -131,23 +141,21 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
             <h3 className="text-lg font-bold text-white mt-1 leading-snug">
               Multi-Agent Aggregated Analysis for <span className="font-mono text-electric-400 font-semibold">{report.ticker}</span>
             </h3>
-            <p className="text-xs text-gray-300 leading-relaxed mt-2" dangerouslySetInnerHTML={{ __html: report.signal_summary }} />
+            <p className="text-xs text-gray-300 leading-relaxed mt-2" dangerouslySetInnerHTML={{ __html: parseMarkdown(report.signal_summary) }} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-white/5">
             <div>
               <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Overall Trend Direction</span>
               <div className="flex items-center gap-1.5 mt-1">
-                <span className={`text-sm font-bold uppercase tracking-wider ${
-                  report.trend === "improving" ? "text-emerald-400" :
-                  report.trend === "declining" ? "text-rose-400" : "text-gold-400"
-                }`}>
+                <span className={`text-sm font-bold uppercase tracking-wider ${report.trend === "improving" ? "text-emerald-400" :
+                    report.trend === "declining" ? "text-rose-400" : "text-gold-400"
+                  }`}>
                   {report.trend}
                 </span>
-                <svg className={`h-4.5 w-4.5 ${
-                  report.trend === "improving" ? "text-emerald-400" :
-                  report.trend === "declining" ? "text-rose-400" : "text-gold-400"
-                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`h-4.5 w-4.5 ${report.trend === "improving" ? "text-emerald-400" :
+                    report.trend === "declining" ? "text-rose-400" : "text-gold-400"
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {report.trend === "improving" ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   ) : report.trend === "declining" ? (
@@ -243,7 +251,7 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
                     {agent.score > 0 ? `${agent.score}/100` : "N/A"}
                   </span>
                 </div>
-                
+
                 {agent.score > 0 ? (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[10px] text-gray-400">
@@ -271,7 +279,7 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
 
       {/* 3. POSITIVES & RISKS COMPONENT */}
       <div className="grid gap-6 md:grid-cols-2">
-        
+
         {/* TOP 3 POSITIVES */}
         <div className="glass-card p-6 border-emerald-500/10 bg-emerald-500/[0.005]">
           <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -333,9 +341,8 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
             const isHigh = sens.impact.toLowerCase() === "high";
             return (
               <div key={idx} className="relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.006] p-4 flex items-start gap-3">
-                <div className={`mt-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase shrink-0 font-mono tracking-widest ${
-                  isUpgrade ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                }`}>
+                <div className={`mt-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase shrink-0 font-mono tracking-widest ${isUpgrade ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                  }`}>
                   {sens.direction}
                 </div>
                 <div className="space-y-1">
@@ -365,7 +372,7 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
               Calculated by combining raw analyst confidences. Reduced completeness penalizes confidence shares automatically.
             </p>
           </div>
-          
+
           <div className="flex items-baseline gap-2 shrink-0">
             <span className="text-2xl font-bold font-mono text-white">{report.overall_confidence}%</span>
             <span className="text-[9px] uppercase tracking-wider font-extrabold text-gray-500">Confidence Factor</span>
@@ -379,7 +386,7 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
               style={{ width: `${report.overall_confidence}%` }}
             />
           </div>
-          <p className="text-[11px] text-gray-400 leading-relaxed text-justify font-medium" dangerouslySetInnerHTML={{ __html: report.confidence_note }} />
+          <p className="text-[11px] text-gray-400 leading-relaxed text-justify font-medium" dangerouslySetInnerHTML={{ __html: parseMarkdown(report.confidence_note) }} />
         </div>
       </div>
 

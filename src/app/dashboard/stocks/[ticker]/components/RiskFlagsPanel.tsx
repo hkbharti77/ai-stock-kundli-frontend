@@ -25,7 +25,7 @@ export default function RiskFlagsPanel({
   riskScore = 75,
   riskCategory = "Low"
 }: RiskFlagsPanelProps) {
-  
+
   // High-pledging threshold check (>30% is a critical trigger)
   const isPledgeCritical = promoterPledge > 30.0;
   // High leverage threshold check (>1.5x)
@@ -70,14 +70,12 @@ export default function RiskFlagsPanel({
       {/* ACTIVE RISK FLAGS & AUDITS */}
       <div className="space-y-3">
         {/* Promoter Pledging Flag */}
-        <div className={`p-3 rounded-xl border flex items-start gap-3 transition duration-300 ${
-          isPledgeCritical 
-            ? "bg-rose-500/10 border-rose-500/30 text-rose-300" 
+        <div className={`p-3 rounded-xl border flex items-start gap-3 transition duration-300 ${isPledgeCritical
+            ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
             : "bg-white/[0.005] border-white/5 text-gray-300"
-        }`}>
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-            isPledgeCritical ? "bg-rose-500/20 text-rose-400" : "bg-white/5 text-gray-400"
           }`}>
+          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isPledgeCritical ? "bg-rose-500/20 text-rose-400" : "bg-white/5 text-gray-400"
+            }`}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -90,22 +88,20 @@ export default function RiskFlagsPanel({
               </span>
             </div>
             <p className="text-[10px] text-gray-500 leading-relaxed">
-              {isPledgeCritical 
-                ? "⚠️ CRITICAL ALERT: Promoter pledged shares exceed the 30% safety threshold, exposing the stock to margin-call liquidation risks." 
+              {isPledgeCritical
+                ? "⚠️ CRITICAL ALERT: Promoter pledged shares exceed the 30% safety threshold, exposing the stock to margin-call liquidation risks."
                 : "Promoters have kept pledge levels safe and healthy, indicating zero immediate margin-call liquidation threat."}
             </p>
           </div>
         </div>
 
         {/* Debt-to-Equity Auditor Flag */}
-        <div className={`p-3 rounded-xl border flex items-start gap-3 transition duration-300 ${
-          isLeverageCritical 
-            ? "bg-amber-500/10 border-amber-500/30 text-amber-300" 
+        <div className={`p-3 rounded-xl border flex items-start gap-3 transition duration-300 ${isLeverageCritical
+            ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
             : "bg-white/[0.005] border-white/5 text-gray-300"
-        }`}>
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-            isLeverageCritical ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-gray-400"
           }`}>
+          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isLeverageCritical ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-gray-400"
+            }`}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
@@ -118,22 +114,20 @@ export default function RiskFlagsPanel({
               </span>
             </div>
             <p className="text-[10px] text-gray-500 leading-relaxed">
-              {isLeverageCritical 
-                ? "⚠️ LEVERAGE WARNING: Debt/Equity ratio exceeds 1.5x. High structural leverage may squeeze net margins during credit cycles." 
+              {isLeverageCritical
+                ? "⚠️ LEVERAGE WARNING: Debt/Equity ratio exceeds 1.5x. High structural leverage may squeeze net margins during credit cycles."
                 : "Debt structure is extremely conservative and well-funded. Strong solvency profile."}
             </p>
           </div>
         </div>
 
         {/* Legal & Regulatory SEBI Notices */}
-        <div className={`p-3 rounded-xl border flex items-start gap-3 transition duration-300 ${
-          hasLegalAlerts 
-            ? "bg-rose-500/10 border-rose-500/30 text-rose-300" 
+        <div className={`p-3 rounded-xl border flex items-start gap-3 transition duration-300 ${hasLegalAlerts
+            ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
             : "bg-white/[0.005] border-white/5 text-gray-300"
-        }`}>
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-            hasLegalAlerts ? "bg-rose-500/20 text-rose-400 animate-pulse" : "bg-white/5 text-emerald-400"
           }`}>
+          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${hasLegalAlerts ? "bg-rose-500/20 text-rose-400 animate-pulse" : "bg-white/5 text-emerald-400"
+            }`}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -141,8 +135,8 @@ export default function RiskFlagsPanel({
           <div className="space-y-0.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-white">Regulatory / SEBI Warning Alerts</span>
             <p className="text-[10px] text-gray-500 leading-relaxed mt-0.5">
-              {hasLegalAlerts 
-                ? "🚨 ALERT DETECTED: Recent news feeds contain active litigation, promoter audit issues, or regulatory SEBI order keywords." 
+              {hasLegalAlerts
+                ? "🚨 ALERT DETECTED: Recent news feeds contain active litigation, promoter audit issues, or regulatory SEBI order keywords."
                 : "No active regulatory inquiries, auditor disputes, or corporate governance warnings detected."}
             </p>
           </div>
@@ -152,25 +146,25 @@ export default function RiskFlagsPanel({
       {/* SHAREHOLDING PATTERN BAR */}
       <div className="space-y-2 pt-2 border-t border-white/5">
         <span className="text-[10px] uppercase font-extrabold text-gray-500 tracking-wider">Shareholding Pattern Distribution</span>
-        
+
         {/* Horizontal stacked bar chart */}
         <div className="h-4.5 w-full rounded-lg overflow-hidden flex border border-white/[0.03]">
-          <div 
+          <div
             className="h-full bg-indigo-500 hover:opacity-95 transition-all duration-300 relative group cursor-pointer"
             style={{ width: `${promoterHolding}%` }}
             title={`Promoters: ${promoterHolding}%`}
           />
-          <div 
+          <div
             className="h-full bg-cyan-400 hover:opacity-95 transition-all duration-300 relative group cursor-pointer"
             style={{ width: `${fiiHolding}%` }}
             title={`FIIs: ${fiiHolding}%`}
           />
-          <div 
+          <div
             className="h-full bg-amber-400 hover:opacity-95 transition-all duration-300 relative group cursor-pointer"
             style={{ width: `${diiHolding}%` }}
             title={`DIIs: ${diiHolding}%`}
           />
-          <div 
+          <div
             className="h-full bg-purple-500 hover:opacity-95 transition-all duration-300 relative group cursor-pointer"
             style={{ width: `${publicHolding}%` }}
             title={`Public: ${publicHolding}%`}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslation } from "../../../context/LanguageContext";
-import LanguageSelector from "../../../components/common/LanguageSelector";
+import Header from "../../../components/common/Header";
 
 export default function MethodologyPage() {
   const { t, language } = useTranslation();
@@ -82,28 +82,6 @@ export default function MethodologyPage() {
         <div className="absolute -top-40 left-20 h-[450px] w-[450px] rounded-full bg-indigo-500/[0.04] blur-[130px]" />
         <div className="absolute bottom-10 right-10 h-[350px] w-[350px] rounded-full bg-emerald-500/[0.03] blur-[110px]" />
       </div>
-
-      {/* Top Navigation */}
-      <nav className="relative z-20 border-b border-white/5 bg-[#070913]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-electric-500 shadow-md shadow-indigo-500/20">
-                <span className="text-sm font-black text-white">K</span>
-              </div>
-              <span className="text-base font-extrabold text-white tracking-tight">
-                {isHindi ? "एआई स्टॉक कुंडली" : "AI Stock Kundli"}
-              </span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <LanguageSelector />
-            <Link href="/dashboard" className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-wider transition duration-300">
-              {isHindi ? "डैशबोर्ड" : "Dashboard"}
-            </Link>
-          </div>
-        </div>
-      </nav>
 
       {/* Main Container */}
       <main className="relative z-10 mx-auto max-w-4xl px-6 py-12 space-y-10">

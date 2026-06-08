@@ -81,6 +81,21 @@ export default function SearchAutocomplete() {
   const handleSelect = (ticker: string) => {
     setIsOpen(false);
     setQuery("");
+
+    // Log search event in telemetry
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    if (token) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      fetch(`${apiUrl}/api/v1/analytics/log-event?event_name=search_stock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ ticker: ticker.toUpperCase() })
+      }).catch(err => console.error("Telemetry search log error:", err));
+    }
+
     router.push(`/dashboard/stocks/${ticker}`);
   };
 

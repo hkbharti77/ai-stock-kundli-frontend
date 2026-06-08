@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslation } from "../../../../context/LanguageContext";
-import LanguageSelector from "../../../../components/common/LanguageSelector";
-import SearchAutocomplete from "../../../../components/common/SearchAutocomplete";
+import Header from "../../../../components/common/Header";
 import AlertModal from "../../../../components/common/AlertModal";
 import Spinner from "../../../../components/common/Spinner";
 
@@ -132,6 +131,7 @@ export default function StockDetailsClient() {
   const [user, setUser] = useState<any>(null);
   const [rateLimited, setRateLimited] = useState(false);
   const [signalHistory, setSignalHistory] = useState<any[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [reportLang, setReportLang] = useState<"en" | "hi">("en");
 
   // Live Ticker & Intraday 5M States
@@ -148,7 +148,7 @@ export default function StockDetailsClient() {
     try {
       const token = localStorage.getItem("access_token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       const url = `${apiUrl}/api/v1/companies/${ticker}/intraday?user_id=${user.id}`;
       const res = await fetch(url, { headers });
       if (res.ok) {
@@ -284,6 +284,12 @@ export default function StockDetailsClient() {
   useEffect(() => {
     logTelemetryEvent("view_tab", { tab: activeTab });
   }, [activeTab]);
+
+  useEffect(() => {
+    if (ticker) {
+      logTelemetryEvent("view_stock", { ticker: ticker.toUpperCase() });
+    }
+  }, [ticker]);
 
   // Custom Alert Modal state
   const [alertOpen, setAlertOpen] = useState(false);
@@ -610,42 +616,57 @@ export default function StockDetailsClient() {
       setRealtimeStep(3); // Step 3: Loading into dashboard
       await new Promise((r) => setTimeout(r, 600));
 
-      // Now poll the profile endpoint until it's ready
+      // Now poll the endpoints until they are ready
       let retries = 0;
-      while (retries < 8) {
+      while (retries < 15) {
         const profileRes = await fetch(`${apiUrl}/api/v1/companies/${ticker}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
-          setProfile(profileData);
-          setRealtimeStep(4); // Step 4: Finalizing
-          await new Promise((r) => setTimeout(r, 500));
+          
+          // Fetch prices
+          const priceRes = await fetch(`${apiUrl}/api/v1/companies/${ticker}/prices`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+          let priceData = null;
+          if (priceRes.ok) {
+            priceData = await priceRes.json();
+          }
 
-          // Load financials and prices
-          const [finRes, priceRes] = await Promise.all([
-            fetch(`${apiUrl}/api/v1/companies/${ticker}/financials`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`${apiUrl}/api/v1/companies/${ticker}/prices`, { headers: { Authorization: `Bearer ${token}` } }),
-          ]);
-          if (finRes.ok) setFinancials(await finRes.json());
-          if (priceRes.ok) setPrices(await priceRes.json());
+          if (profileData && profileData.market_cap !== null && priceData && priceData.prices && priceData.prices.length > 0) {
+            setProfile(profileData);
+            
+            // Try to load financials
+            const finRes = await fetch(`${apiUrl}/api/v1/companies/${ticker}/financials`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (finRes.ok) {
+              setFinancials(await finRes.json());
+            }
+            setPrices(priceData);
 
-          // Kick off AI agents in background
-          fetchKundliReport();
-          fetchFundamentalAnalysis();
-          fetchTechnicalAnalysis();
-          fetchTechnicalIndicators();
-          fetchNewsData();
+            setRealtimeStep(4); // Step 4: Finalizing
+            await new Promise((r) => setTimeout(r, 500));
 
-          // Load user
-          fetch(`${apiUrl}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-            .then((r) => r.json()).then(setUser).catch(() => {});
+            // Kick off AI agents in background
+            fetchKundliReport();
+            fetchFundamentalAnalysis();
+            fetchTechnicalAnalysis();
+            fetchTechnicalIndicators();
+            fetchNewsData();
 
-          setRealtimeFetching(false);
-          return;
+            // Load user
+            fetch(`${apiUrl}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+              .then((r) => r.json()).then(setUser).catch(() => {});
+
+            setRealtimeFetching(false);
+            return;
+          }
         }
         retries++;
-        await new Promise((r) => setTimeout(r, 1500));
+        await new Promise((r) => setTimeout(r, 2000));
       }
 
       throw new Error("Data fetched but profile not available yet. Please refresh the page.");
@@ -684,6 +705,9 @@ export default function StockDetailsClient() {
       }),
     ])
       .then(([profileData, finData, priceData]) => {
+        if (!profileData || profileData.market_cap === null || !priceData || !priceData.prices || priceData.prices.length === 0) {
+          throw new Error("Company data is incomplete or has zero prices");
+        }
         setProfile(profileData);
         if (finData) setFinancials(finData);
         if (priceData) setPrices(priceData);
@@ -713,7 +737,7 @@ export default function StockDetailsClient() {
       })
       .catch((err) => {
         console.error("Error loading stock details:", err);
-        // Company not in DB — trigger real-time ingestion automatically
+        // Company not in DB or incomplete — trigger real-time ingestion automatically
         setLoading(false);
         fetchRealtimeData();
       })
@@ -987,30 +1011,7 @@ export default function StockDetailsClient() {
         <div className="absolute bottom-0 right-0 h-[300px] w-[300px] rounded-full bg-gold-500/[0.03] blur-[100px]" />
       </div>
 
-      {/* Top Nav */}
-      <nav className="relative z-20 border-b border-white/5 bg-navy-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-electric-500 to-electric-600">
-                <span className="text-sm font-bold text-white">K</span>
-              </div>
-              <span className="text-base font-bold text-white">{t("dashboard.title")}</span>
-            </Link>
-            <div className="hidden md:block">
-              <SearchAutocomplete />
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <LanguageSelector />
-            <Link href="/dashboard" className="nav-link text-xs">
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Breadcrumb & Search for small screens */}
+      {/* Breadcrumb */}
       <div className="relative z-10 mx-auto max-w-7xl px-6 pt-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/dashboard" className="hover:text-electric-400 transition-colors">
@@ -1018,9 +1019,6 @@ export default function StockDetailsClient() {
           </Link>
           <span>/</span>
           <span className="text-gray-300 font-mono font-medium">{ticker}</span>
-        </div>
-        <div className="md:hidden">
-          <SearchAutocomplete />
         </div>
       </div>
 
@@ -1492,16 +1490,32 @@ export default function StockDetailsClient() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid gap-6 lg:grid-cols-3">
-                    <div className="lg:col-span-2 space-y-4">
-                      {/* Premium Language Selection Toggle */}
-                      <div className="glass-card px-4 py-2.5 flex items-center justify-between border-white/5 bg-white/[0.01] rounded-xl">
-                        <div className="flex items-center gap-2">
-                          <svg className="h-4 w-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5c-.347 2.287-1.566 4.545-3.414 6.5m0 0a17.915 17.915 0 01-3.078-5.064M9.337 11.5a14.96 14.96 0 01-3.407-3.92" />
-                          </svg>
-                          <span className="text-[10px] font-extrabold text-gray-300 uppercase tracking-widest">Report Language / रिपोर्ट की भाषा</span>
-                        </div>
+                  <div className="space-y-4">
+                    {/* Premium Language Selection Toggle */}
+                    <div className="glass-card px-4 py-2.5 flex items-center justify-between border-white/5 bg-white/[0.01] rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5c-.347 2.287-1.566 4.545-3.414 6.5m0 0a17.915 17.915 0 01-3.078-5.064M9.337 11.5a14.96 14.96 0 01-3.407-3.92" />
+                        </svg>
+                        <span className="text-[10px] font-extrabold text-gray-300 uppercase tracking-widest">Report Language / रिपोर्ट की भाषा</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {signalHistory && signalHistory.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setShowHistoryModal(true);
+                              logTelemetryEvent("view_rating_history", { ticker });
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-1.5 text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/30 transition cursor-pointer"
+                          >
+                            <svg className="h-3.5 w-3.5 text-indigo-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Rating History
+                          </button>
+                        )}
+
                         <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
                           <button
                             onClick={() => {
@@ -1511,8 +1525,8 @@ export default function StockDetailsClient() {
                             }}
                             className={`px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider transition ${
                               reportLang === "en"
-                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                                : "text-gray-400 hover:text-white"
+                                  ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                                  : "text-gray-400 hover:text-white"
                             }`}
                           >
                             English
@@ -1525,52 +1539,16 @@ export default function StockDetailsClient() {
                             }}
                             className={`px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider transition ${
                               reportLang === "hi"
-                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                                : "text-gray-400 hover:text-white"
+                                  ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                                  : "text-gray-400 hover:text-white"
                             }`}
                           >
                             हिन्दी (Hindi)
                           </button>
                         </div>
                       </div>
-                      <KundliReportVisualizer report={kundliReport} />
                     </div>
-                    <div className="glass-card p-6 space-y-4 border-indigo-500/10 bg-indigo-500/[0.005] h-fit">
-                      <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-1.5 border-b border-white/5 pb-3">
-                        <svg className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Rating Transition History
-                      </h4>
-                      {signalHistory && signalHistory.length > 0 ? (
-                        <div className="relative border-l border-white/10 ml-2.5 pl-4.5 space-y-4 pt-1">
-                          {signalHistory.map((trans, idx) => {
-                            const isUpgrade = trans.new_score > (trans.old_score || 0);
-                            return (
-                              <div key={idx} className="relative">
-                                <span className={`absolute -left-7.5 top-1.5 h-3 w-3 rounded-full border border-dark-900 ${
-                                  isUpgrade ? "bg-emerald-500" : "bg-rose-500"
-                                }`} />
-                                <div className="space-y-0.5">
-                                  <div className="flex justify-between items-baseline">
-                                    <span className="text-xs font-bold text-white">
-                                      {trans.old_signal && trans.old_signal !== "N/A" ? `${trans.old_signal} → ` : ""}
-                                      <span className={isUpgrade ? "text-emerald-400" : "text-rose-400"}>{trans.new_signal}</span>
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 font-mono">{trans.changed_at.split(" ")[0]}</span>
-                                  </div>
-                                  <p className="text-[10px] text-gray-400 leading-normal">
-                                    Score adjusted from {trans.old_score || "N/A"} to <span className="font-bold text-white">{trans.new_score}</span>.
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-gray-500 italic">No historical signal transitions recorded yet for {ticker}.</p>
-                      )}
-                    </div>
+                    <KundliReportVisualizer report={kundliReport} />
                   </div>
                 )}
               </div>
@@ -1948,6 +1926,80 @@ export default function StockDetailsClient() {
         message={alertMessage}
         type={alertType}
       />
+
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setShowHistoryModal(false)}
+          />
+
+          {/* Modal Box */}
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-navy-900/95 p-6 shadow-2xl backdrop-blur-xl transition-all duration-300 transform scale-100 animate-in fade-in zoom-in-95 duration-200">
+            {/* Glow element */}
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full blur-3xl bg-indigo-500/[0.08]" />
+
+            <div className="flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                  <svg className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Rating Transition History
+                </h3>
+                <button 
+                  onClick={() => setShowHistoryModal(false)}
+                  className="text-gray-400 hover:text-white text-xl font-bold transition"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Timeline Content */}
+              <div className="max-h-[300px] overflow-y-auto pr-1 py-1">
+                {signalHistory && signalHistory.length > 0 ? (
+                  <div className="relative border-l border-white/10 ml-3 pl-6 space-y-5">
+                    {signalHistory.map((trans, idx) => {
+                      const isUpgrade = trans.new_score > (trans.old_score || 0);
+                      return (
+                        <div key={idx} className="relative">
+                          <span className={`absolute -left-[30px] top-[6px] h-3 w-3 rounded-full border border-dark-900 ${
+                            isUpgrade ? "bg-emerald-500" : "bg-rose-500"
+                          }`} />
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between items-baseline gap-4">
+                              <span className="text-xs font-bold text-white">
+                                {trans.old_signal && trans.old_signal !== "N/A" ? `${trans.old_signal} → ` : ""}
+                                <span className={isUpgrade ? "text-emerald-400" : "text-rose-400"}>{trans.new_signal}</span>
+                              </span>
+                              <span className="text-[10px] text-gray-500 font-mono shrink-0">{trans.changed_at.split(" ")[0]}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 leading-normal">
+                              Score adjusted from {trans.old_score || "N/A"} to <span className="font-bold text-white">{trans.new_score}</span>.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-500 italic text-center py-4">No historical signal transitions recorded yet for {ticker}.</p>
+                )}
+              </div>
+
+              {/* Footer Button */}
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="mt-6 w-full py-2.5 px-4 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-xl text-xs transition duration-200"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

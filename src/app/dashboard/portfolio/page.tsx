@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Spinner from "../../../components/common/Spinner";
+import Header from "../../../components/common/Header";
 
 interface Company {
   id: number;
@@ -129,8 +130,43 @@ interface PortfolioBuilderResponse {
 }
 
 
+interface User {
+  id: number;
+  email: string;
+  full_name: string | null;
+  plan: string;
+  is_verified: boolean;
+  created_at: string;
+}
+
+const renderInlineItalic = (text: string) => {
+  const parts = text.split(/(\*.*?\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={idx} className="italic text-gray-200">{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+};
+
+const renderInline = (text: string, isHeader: boolean = false) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const boldText = part.slice(2, -2);
+      return (
+        <strong key={idx} className={isHeader ? "font-extrabold text-emerald-300" : "font-extrabold text-white"}>
+          {renderInlineItalic(boldText)}
+        </strong>
+      );
+    }
+    return renderInlineItalic(part);
+  });
+};
+
 export default function PortfolioPage() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
@@ -251,12 +287,200 @@ export default function PortfolioPage() {
     }, 300);
   }, [searchTickers]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    router.push("/");
+  };
+
+  const handleDownloadPDF = () => {
+    if (!analysis?.ai_advisor_report) return;
+    
+    const reportContent = analysis.ai_advisor_report;
+    
+    const parseToHTML = (text: string) => {
+      return text.split("\n\n").map(para => {
+        let trimmed = para.trim();
+        if (!trimmed) return "";
+        
+        const parseInline = (str: string) => {
+          str = str.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          str = str.replace(/\*(.*?)\*/g, '<em>$1</em>');
+          return str;
+        };
+        
+        if (trimmed.startsWith("###")) {
+          return `<h3 style="color: #059669; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem; border-left: 3px solid #059669; padding-left: 0.5rem; font-family: sans-serif;">${parseInline(trimmed.replace("###", "").trim())}</h3>`;
+        }
+        if (trimmed.startsWith("##")) {
+          return `<h2 style="color: #059669; font-size: 1.5rem; margin-top: 2rem; margin-bottom: 1rem; border-left: 4px solid #059669; padding-left: 0.5rem; font-family: sans-serif;">${parseInline(trimmed.replace("##", "").trim())}</h2>`;
+        }
+        if (trimmed.startsWith("#")) {
+          return `<h1 style="color: #059669; font-size: 1.75rem; margin-top: 2rem; margin-bottom: 1rem; border-left: 4px solid #059669; padding-left: 0.5rem; font-family: sans-serif;">${parseInline(trimmed.replace("#", "").trim())}</h1>`;
+        }
+        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
+          const items = trimmed.split("\n").map(li => {
+            const itemText = li.replace(/^[\-\*\s]+/, "");
+            return `<li style="margin-bottom: 0.5rem; line-height: 1.6;">${parseInline(itemText)}</li>`;
+          }).join("");
+          return `<ul style="padding-left: 1.5rem; margin-bottom: 1rem; color: #374151;">${items}</ul>`;
+        }
+        if (/^\d+\./.test(trimmed)) {
+          const items = trimmed.split("\n").map(li => {
+            const itemText = li.replace(/^\d+\.[\s]*/, "");
+            return `<li style="margin-bottom: 0.5rem; line-height: 1.6;">${parseInline(itemText)}</li>`;
+          }).join("");
+          return `<ol style="padding-left: 1.5rem; margin-bottom: 1rem; color: #374151;">${items}</ol>`;
+        }
+        
+        return `<p style="margin-bottom: 1rem; line-height: 1.6; color: #374151;">${parseInline(trimmed)}</p>`;
+      }).join("");
+    };
+
+    const formattedHTML = parseToHTML(reportContent);
+    const clientName = user ? (user.full_name || user.email) : "Valued Investor";
+    
+    // Create temporary hidden iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) return;
+    
+    iframeDoc.write(`
+      <html>
+        <head>
+          <title>AI Portfolio Wealth Advisor Report - ${clientName}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              color: #1f2937;
+              line-height: 1.6;
+              max-width: 800px;
+              margin: 40px auto;
+              padding: 0 20px;
+            }
+            .header {
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: bold;
+              color: #111827;
+              margin: 0;
+            }
+            .subtitle {
+              font-size: 14px;
+              color: #6b7280;
+              margin-top: 5px;
+            }
+            .timestamp {
+              font-size: 12px;
+              color: #4b5563;
+              text-align: right;
+              line-height: 1.4;
+            }
+            .footer {
+              margin-top: 50px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 20px;
+              font-size: 11px;
+              color: #9ca3af;
+              text-align: center;
+              line-height: 1.4;
+            }
+            strong {
+              color: #111827;
+              font-weight: 700;
+            }
+            h1, h2, h3 {
+              page-break-after: avoid;
+            }
+            @media print {
+              body {
+                margin: 20px auto;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">AI Portfolio Wealth Advisor</h1>
+              <div class="subtitle">Custom Portfolio Strategy & Investment Report</div>
+            </div>
+            <div class="timestamp">
+              <strong>Prepared for:</strong> ${clientName}<br>
+              <strong>Date:</strong> ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}<br>
+              <strong>Time:</strong> ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+          
+          <div class="content">
+            ${formattedHTML}
+          </div>
+          
+          <div class="footer">
+            Disclaimer: This is an AI-synthesized wealth advisory report based on your portfolio holdings. 
+            All suggestions are for educational/informational purposes only. Please perform independent verification 
+            or consult a SEBI registered investment advisor before executing trades.
+          </div>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+    
+    // Focus and print the iframe content
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      
+      // Remove the iframe after a short delay to allow print system dialog to run
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 1000);
+    }, 100);
+  };
+
   // Check auth and initial fetch
   useEffect(() => {
     if (!token) {
       router.push("/login");
       return;
     }
+
+    fetch(`${apiUrl}/api/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized");
+        return res.json();
+      })
+      .then((data) => {
+        setUser(data);
+      })
+      .catch((err) => {
+        console.error("Auth check failed:", err);
+        localStorage.removeItem("access_token");
+        router.push("/login");
+      });
+
     fetchData();
   }, [token]);
 
@@ -583,13 +807,13 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#08090c] bg-radial bg-no-repeat bg-cover text-white font-sans p-6 lg:p-8">
+    <div className="min-h-screen bg-[#08090c] bg-radial bg-no-repeat bg-cover text-white font-sans">
       {/* Background Glows */}
       <div className="fixed top-[-10%] right-[-5%] w-[40vw] h-[40vw] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="fixed bottom-[-10%] left-[-5%] w-[45vw] h-[45vw] bg-blue-500/5 rounded-full blur-[130px] pointer-events-none" />
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8 p-6 lg:p-8">
         
         {/* Header Breadcrumb & Actions */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-6">
@@ -608,19 +832,22 @@ export default function PortfolioPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* Add Stock Manually Button */}
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 rounded-xl text-sm font-semibold shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition"
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-[#08090c] hover:scale-[1.02] active:scale-[0.98] rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/10 flex items-center gap-2 transition-all duration-200"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Add Stock Manually
             </button>
 
+            {/* Download CSV Template Button */}
             <button
               onClick={handleDownloadTemplate}
-              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold transition flex items-center gap-2"
+              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2"
+              title="Download empty CSV template"
             >
               <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -628,22 +855,65 @@ export default function PortfolioPage() {
               Download CSV Template
             </button>
             
-            {/* CSV Quick Form */}
-            <form onSubmit={handleCsvImport} className="flex items-center gap-2 bg-white/5 border border-white/15 px-3 py-1.5 rounded-xl">
+            {/* Custom Styled CSV Upload */}
+            <form onSubmit={handleCsvImport} className="flex items-center gap-2">
               <input
                 id="csv-input"
                 type="file"
                 accept=".csv"
                 onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
-                className="text-xs text-gray-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 transition cursor-pointer max-w-[170px]"
+                className="hidden"
               />
-              <button
-                type="submit"
-                disabled={!csvFile || importing}
-                className="px-3 py-1 bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:hover:bg-white/10 rounded-lg text-xs font-semibold tracking-wide transition flex items-center gap-1.5"
-              >
-                {importing ? "Importing..." : "Upload CSV"}
-              </button>
+              
+              {!csvFile ? (
+                <label
+                  htmlFor="csv-input"
+                  className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer"
+                >
+                  <svg className="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  Import CSV Portfolio
+                </label>
+              ) : (
+                <div className="flex items-center gap-2 bg-[#0c101b] border border-emerald-500/30 px-3 py-1.5 rounded-xl shadow-lg shadow-emerald-950/20 animate-fade-in">
+                  <div className="flex items-center gap-1.5 max-w-[150px] md:max-w-[200px]">
+                    <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <span className="text-xs text-gray-200 font-mono truncate" title={csvFile.name}>
+                      {csvFile.name}
+                    </span>
+                  </div>
+                  
+                  {/* Clear Selected File Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCsvFile(null);
+                      const fileInput = document.getElementById("csv-input") as HTMLInputElement;
+                      if (fileInput) fileInput.value = "";
+                    }}
+                    className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-rose-400 transition"
+                    title="Remove selected file"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+
+                  <div className="h-4 w-px bg-white/10" />
+
+                  {/* Upload Confirm Button */}
+                  <button
+                    type="submit"
+                    disabled={importing}
+                    className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    {importing ? "Uploading..." : "Upload"}
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -1102,15 +1372,31 @@ export default function PortfolioPage() {
 
               {/* Column 2 & 3: Custom senior agentic reports */}
               <div className="lg:col-span-2 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div className="flex items-start gap-3 mb-5 border-b border-white/10 pb-4">
-                  <span className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3z" />
-                    </svg>
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-200">AI Advisor Portfolio Report</h3>
-                    <span className="text-xs text-gray-400">Custom Hinglish advisory synthesized by senior multi-agent strategists.</span>
+                <div className="flex items-start gap-3 mb-5 border-b border-white/10 pb-4 w-full">
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex items-start gap-3">
+                      <span className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3z" />
+                        </svg>
+                      </span>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-200">AI Advisor Portfolio Report</h3>
+                        <span className="text-xs text-gray-400">Custom Hinglish advisory synthesized by senior multi-agent strategists.</span>
+                      </div>
+                    </div>
+                    {analysis && (
+                      <button
+                        onClick={handleDownloadPDF}
+                        className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0"
+                        title="Download report as PDF"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Download PDF
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1121,14 +1407,28 @@ export default function PortfolioPage() {
                       if (para.startsWith("###")) {
                         return (
                           <h4 key={pIdx} className="text-base font-extrabold text-emerald-400 mt-5 mb-2.5 border-l-2 border-emerald-500 pl-2">
-                            {para.replace("###", "").trim()}
+                            {renderInline(para.replace("###", "").trim(), true)}
                           </h4>
+                        );
+                      }
+                      if (para.startsWith("##")) {
+                        return (
+                          <h3 key={pIdx} className="text-lg font-extrabold text-emerald-400 mt-6 mb-3 border-l-2 border-emerald-500 pl-2">
+                            {renderInline(para.replace("##", "").trim(), true)}
+                          </h3>
+                        );
+                      }
+                      if (para.startsWith("#")) {
+                        return (
+                          <h2 key={pIdx} className="text-xl font-extrabold text-emerald-400 mt-8 mb-4 border-l-2 border-emerald-500 pl-2">
+                            {renderInline(para.replace("#", "").trim(), true)}
+                          </h2>
                         );
                       }
                       if (para.startsWith("1.") || para.startsWith("2.") || para.startsWith("3.")) {
                         return (
                           <div key={pIdx} className="my-2 text-gray-200 pl-4 border-l border-white/10 italic">
-                            {para}
+                            {renderInline(para)}
                           </div>
                         );
                       }
@@ -1136,12 +1436,12 @@ export default function PortfolioPage() {
                         return (
                           <ul key={pIdx} className="list-disc pl-5 space-y-1.5 text-gray-300">
                             {para.split("\n").map((li, lIdx) => (
-                              <li key={lIdx}>{li.replace(/^[\-\*\s]+/, "")}</li>
+                              <li key={lIdx}>{renderInline(li.replace(/^[\-\*\s]+/, ""))}</li>
                             ))}
                           </ul>
                         );
                       }
-                      return <p key={pIdx} className="text-gray-300">{para}</p>;
+                      return <p key={pIdx} className="text-gray-300">{renderInline(para)}</p>;
                     })}
                   </div>
                 ) : (

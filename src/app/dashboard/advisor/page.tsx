@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Header from "../../../components/common/Header";
 import Spinner from "../../../components/common/Spinner";
 
 interface Client {
@@ -533,7 +534,7 @@ export default function AdvisorDashboard() {
         return prev.filter((id) => id !== clientId);
       } else {
         if (prev.length >= 3) {
-          alert("You can compare a maximum of 3 clients side-by-side.");
+          showToast("You can compare a maximum of 3 clients side-by-side.", "error");
           return prev;
         }
         return [...prev, clientId];
@@ -543,7 +544,7 @@ export default function AdvisorDashboard() {
 
   const handleRunComparison = async () => {
     if (compareIds.length < 2) {
-      alert("Please select at least 2 clients for comparison.");
+      showToast("Please select at least 2 clients for comparison.", "error");
       return;
     }
     setLoadingComparison(true);
@@ -610,32 +611,6 @@ export default function AdvisorDashboard() {
         <div className="absolute top-10 left-10 h-[450px] w-[450px] rounded-full bg-emerald-500/[0.04] blur-[130px]" />
         <div className="absolute bottom-10 right-10 h-[350px] w-[350px] rounded-full bg-cyan-500/[0.04] blur-[110px]" />
       </div>
-
-      {/* ── Header Nav ───────────────────────────────────── */}
-      <nav className="relative z-20 border-b border-white/5 bg-navy-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500">
-                <span className="text-sm font-bold text-white">K</span>
-              </div>
-              <span className="text-base font-bold text-white">Wealth Advisor Hub</span>
-            </Link>
-            <span className="text-xs text-gray-500 border-l border-white/10 pl-4 hidden sm:inline">
-              Professional Multi-Client Console
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link 
-              href="/dashboard" 
-              className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-semibold text-gray-300 transition"
-            >
-              ← Back to Client Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
 
       {/* ── Main Container ───────────────────────────────── */}
       <main className="relative z-10 mx-auto max-w-7xl px-6 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">

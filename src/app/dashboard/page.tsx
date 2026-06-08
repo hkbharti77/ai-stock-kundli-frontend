@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../context/LanguageContext";
-import LanguageSelector from "../../components/common/LanguageSelector";
-import SearchAutocomplete from "../../components/common/SearchAutocomplete";
+import Header from "../../components/common/Header";
 import Spinner from "../../components/common/Spinner";
 import { useBranding } from "../../context/BrandingContext";
+import AlertModal from "../../components/common/AlertModal";
 
 /* ═══════════════════════════════════════════════════════════
    AI Stock Kundli — Dashboard (Protected)
@@ -19,6 +19,7 @@ interface User {
   full_name: string | null;
   plan: string;
   is_verified: boolean;
+  role?: string;
   created_at: string;
 }
 
@@ -31,12 +32,29 @@ const WATCHLIST_MOCK = [
   { ticker: "TATAMOTORS", name: "Tata Motors Ltd", signal: "Caution", score: 38, color: "text-rose-400", badge: "badge-red" },
 ];
 
-const ALERTS_MOCK = [
-  { time: "2 min ago", text: "RELIANCE crossed above 200 DMA with volume confirmation", type: "bullish" },
-  { time: "15 min ago", text: "ITC quarterly results beat analyst estimates by 12%", type: "news" },
-  { time: "1 hr ago", text: "TATAMOTORS promoter pledge increased to 35%", type: "risk" },
-  { time: "3 hr ago", text: "HDFCBANK sentiment score improved +18 points in 24h", type: "bullish" },
-];
+const formatRelativeTime = (dateStr: string) => {
+  try {
+    let date: Date;
+    if (dateStr.includes(" ")) {
+      date = new Date(dateStr.replace(" ", "T") + "Z");
+    } else {
+      date = new Date(dateStr);
+    }
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffSec < 60) return "just now";
+    if (diffMin < 60) return `${diffMin} min ago`;
+    if (diffHr < 24) return `${diffHr} hr ago`;
+    return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+  } catch (err) {
+    return dateStr;
+  }
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -46,6 +64,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [watchlist, setWatchlist] = useState<any[]>([]);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "alert" } | null>(null);
+
+  // Custom alert modal states
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState<"success" | "error" | "info">("info");
+
+  const showAlert = (title: string, message: string, type: "success" | "error" | "info" = "info") => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertOpen(true);
+  };
 
   useEffect(() => {
     // Dynamic Razorpay script loading
@@ -81,19 +115,26 @@ export default function DashboardPage() {
       .then((data) => {
         setUser(data);
         
-        // Fetch Watchlist
+        // Fetch Watchlist in parallel with alerts
         setLoadingWatchlist(true);
-        return fetch(`${apiUrl}/api/v1/watchlist/`, {
+        const fetchWatchlistPromise = fetch(`${apiUrl}/api/v1/watchlist/`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
+        }).then(res => res && res.ok ? res.json() : []);
+
+        // Fetch Alerts
+        setLoadingAlerts(true);
+        const fetchAlertsPromise = fetch(`${apiUrl}/api/v1/alerts/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res && res.ok ? res.json() : { alerts: [] });
+
+        return Promise.all([fetchWatchlistPromise, fetchAlertsPromise]);
       })
-      .then((res) => {
-        if (res && res.ok) return res.json();
-        return [];
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setWatchlist(data);
+      .then(([watchlistData, alertsData]) => {
+        if (Array.isArray(watchlistData)) {
+          setWatchlist(watchlistData);
+        }
+        if (alertsData && Array.isArray(alertsData.alerts)) {
+          setAlerts(alertsData.alerts);
         }
       })
       .catch((err) => {
@@ -105,8 +146,83 @@ export default function DashboardPage() {
       .finally(() => {
         setLoading(false);
         setLoadingWatchlist(false);
+        setLoadingAlerts(false);
       });
   }, [router]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const token = localStorage.getItem("access_token");
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const wsProto = apiUrl.startsWith("https") ? "wss" : "ws";
+    const wsUrl = `${wsProto}://${apiUrl.replace(/^https?:\/\//, "")}/api/v1/alerts/ws/${user.id}`;
+    
+    let ws: WebSocket;
+    let reconnectTimeout: any;
+
+    const connectWebSocket = () => {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("Dashboard Alerts WebSocket connected.");
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.event === "alert_triggered") {
+            // Add a beautiful toast notification
+            setToast({
+              message: `${payload.title}: ${payload.message}`,
+              type: "alert"
+            });
+            // Auto hide toast after 6 seconds
+            setTimeout(() => setToast(null), 6000);
+
+            // Add the new alert to state
+            setAlerts((prev) => [
+              {
+                id: Date.now(),
+                ticker: payload.ticker,
+                company_name: payload.ticker,
+                title: payload.title,
+                message: payload.message,
+                severity: payload.severity || "info",
+                channel: "push",
+                delivered_at: payload.timestamp || new Date().toISOString()
+              },
+              ...prev
+            ]);
+          }
+        } catch (err) {
+          console.warn("Dashboard WebSocket parse error:", err);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("Dashboard Alerts WebSocket disconnected. Reconnecting in 5s...");
+        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("Dashboard WebSocket error:", err);
+        ws.close();
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
+  }, [user?.id]);
 
   const handleUpgrade = async () => {
     try {
@@ -138,7 +254,7 @@ export default function DashboardPage() {
         if (upgradeRes.ok) {
           const updatedUser = await upgradeRes.json();
           setUser(prev => prev ? { ...prev, plan: "starter" } : null);
-          alert("🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Starter'.");
+          showAlert("Upgrade Successful", "🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Starter'.", "success");
         }
       } else {
         const options = {
@@ -149,7 +265,7 @@ export default function DashboardPage() {
           description: "Starter Subscription",
           order_id: order.id,
           handler: async function (response: any) {
-            alert("Payment successful! Refreshing subscription status.");
+            showAlert("Payment Successful", "Payment successful! Refreshing subscription status.", "success");
             const userRes = await fetch(`${apiUrl}/api/v1/auth/me`, {
               headers: { Authorization: `Bearer ${token}` }
             });
@@ -170,7 +286,7 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("Failed to upgrade subscription:", err);
-      alert("Subscription upgrade failed. Please try again.");
+      showAlert("Upgrade Failed", "Subscription upgrade failed. Please try again.", "error");
     }
   };
 
@@ -190,7 +306,7 @@ export default function DashboardPage() {
       
       if (res.ok) {
         setUser(prev => prev ? { ...prev, plan: "free" } : null);
-        alert("🔄 Plan reset to 'Free' for testing rate limits.");
+        showAlert("Plan Reset", "🔄 Plan reset to 'Free' for testing rate limits.", "info");
       }
     } catch (err) {
       console.error("Failed to reset plan:", err);
@@ -213,7 +329,7 @@ export default function DashboardPage() {
       
       if (res.ok) {
         setUser(prev => prev ? { ...prev, plan: "advisor" } : null);
-        alert("🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Advisor'.");
+        showAlert("Upgrade Successful", "🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Advisor'.", "success");
       }
     } catch (err) {
       console.error("Failed to upgrade to advisor:", err);
@@ -248,55 +364,6 @@ export default function DashboardPage() {
         <div className="absolute -top-40 left-20 h-[400px] w-[400px] rounded-full bg-electric-500/[0.05] blur-[120px]" />
         <div className="absolute bottom-0 right-0 h-[300px] w-[300px] rounded-full bg-gold-500/[0.04] blur-[100px]" />
       </div>
-
-      {/* ── Top Nav ─────────────────────────────────────── */}
-      <nav className="relative z-20 border-b border-white/5 bg-navy-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              {appBranding.logo_url ? (
-                <img src={appBranding.logo_url} alt="Logo" className="h-7 w-7 rounded object-cover" />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-electric-500 to-electric-600">
-                  <span className="text-sm font-bold text-white">K</span>
-                </div>
-              )}
-              <span className="text-base font-bold text-white">{appBranding.brand_name || t("dashboard.title")}</span>
-            </Link>
-            <Link href="/dashboard/portfolio" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              💼 AI Portfolio Advisor
-            </Link>
-            <Link href="/dashboard/backtest" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              📈 Historical Backtester
-            </Link>
-            <Link href="/dashboard/developer" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              ⚡ Developer Portal
-            </Link>
-            {(user?.plan?.toLowerCase() === "advisor" || user?.plan?.toLowerCase() === "admin") && (
-              <Link href="/dashboard/advisor" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition pl-4 border-l border-white/10 hidden md:block">
-                💼 Advisor Workspace
-              </Link>
-            )}
-            {(user?.role === "SuperAdmin" || user?.role === "OrgAdmin") && (
-              <Link href="/dashboard/admin" className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition pl-4 border-l border-white/10 hidden md:block">
-                🛡️ Control Console
-              </Link>
-            )}
-            <div className="hidden md:block">
-              <SearchAutocomplete />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="badge-blue">{user?.plan?.toUpperCase()} PLAN</span>
-            <span className="text-sm text-gray-400">{user?.full_name || user?.email}</span>
-            <LanguageSelector />
-            <button onClick={handleLogout} className="nav-link text-xs hover:text-rose-400">
-              {t("common.logout")}
-            </button>
-          </div>
-        </div>
-      </nav>
 
       {/* ── Main Content ────────────────────────────────── */}
       <main className="relative z-10 mx-auto max-w-7xl px-6 py-8">
@@ -439,27 +506,47 @@ export default function DashboardPage() {
               <span className="badge-blue text-[10px]">LIVE</span>
             </div>
             <div className="space-y-3">
-              {ALERTS_MOCK.map((alert, idx) => (
-                <div key={idx} className="glass-card p-4">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                        alert.type === "bullish"
-                          ? "bg-emerald-400"
-                          : alert.type === "risk"
-                          ? "bg-rose-400"
-                          : "bg-gold-400"
-                      }`}
-                    />
-                    <div>
-                      <p className="text-sm text-gray-300 leading-relaxed">
-                        {alert.text}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-600">{alert.time}</p>
+              {loadingAlerts ? (
+                <div className="flex justify-center py-8">
+                  <Spinner size="h-6 w-6" color="text-indigo-400" label="" />
+                </div>
+              ) : alerts.length === 0 ? (
+                <div className="glass-card p-6 text-center">
+                  <p className="text-xs text-gray-500">No recent alerts found.</p>
+                  <p className="text-[10px] text-gray-600 mt-1">Configured alert rules will trigger notifications here.</p>
+                </div>
+              ) : (
+                alerts.map((alert, idx) => (
+                  <div key={alert.id || idx} className="glass-card p-4 border border-white/5 hover:border-white/10 transition duration-300">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                          alert.severity === "critical" || alert.severity === "risk"
+                            ? "bg-rose-400"
+                            : alert.severity === "high"
+                            ? "bg-gold-400"
+                            : alert.severity === "medium" || alert.severity === "bullish"
+                            ? "bg-emerald-400"
+                            : "bg-indigo-400"
+                        }`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">{alert.ticker}</span>
+                          <span className="text-[9px] text-gray-500 uppercase tracking-widest">{alert.severity}</span>
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-gray-200 leading-relaxed">
+                          {alert.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-400 leading-relaxed">
+                          {alert.message}
+                        </p>
+                        <p className="mt-2 text-[10px] text-gray-600 font-mono">{formatRelativeTime(alert.delivered_at)}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Premium Billing Section */}
@@ -534,6 +621,33 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Glassmorphic Real-Time Push Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 p-4 rounded-xl border backdrop-blur-xl shadow-2xl transition-all duration-300 max-w-md ${
+          toast.type === "error"
+            ? "border-rose-500/40 bg-rose-950/70 text-rose-200 shadow-rose-500/10"
+            : toast.type === "alert"
+            ? "border-amber-500/40 bg-amber-950/70 text-amber-200 shadow-amber-500/10"
+            : "border-emerald-500/40 bg-emerald-950/70 text-emerald-200 shadow-emerald-500/10"
+        }`}>
+          <div className="flex items-start gap-3">
+            <span className="text-lg">🔔</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-bold tracking-wide leading-relaxed block">{toast.message}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white text-xs font-mono ml-2">&times;</button>
+          </div>
+        </div>
+      )}
+
+      <AlertModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+      />
     </div>
   );
 }

@@ -29,6 +29,22 @@ interface Props {
   ticker: string;
 }
 
+const getUserIdFromToken = (token: string | null): number | null => {
+  if (!token) return null;
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const payload = JSON.parse(jsonPayload);
+    return payload.sub ? parseInt(payload.sub, 10) : null;
+  } catch (err) {
+    console.error("Failed to decode token:", err);
+    return null;
+  }
+};
+
 export default function AlertTriggerPanel({ ticker }: Props) {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [logs, setLogs] = useState<AlertLog[]>([]);
@@ -42,16 +58,24 @@ export default function AlertTriggerPanel({ ticker }: Props) {
   const [quietHours, setQuietHours] = useState(true);
   const [messageToast, setMessageToast] = useState<{ text: string; type: "success" | "alert" } | null>(null);
 
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const userId = getUserIdFromToken(token);
+
   // Fetch configured rules and history
   async function fetchRulesAndLogs() {
     try {
       const [rulesRes, logsRes] = await Promise.all([
-        fetch("http://localhost:8000/api/v1/alerts/rules?user_id=1"),
-        fetch(`http://localhost:8000/api/v1/alerts/history?user_id=1&ticker=${ticker}`)
+        fetch(`${apiUrl}/api/v1/alerts/rules`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${apiUrl}/api/v1/alerts/history?ticker=${ticker}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
       ]);
       if (rulesRes.ok && logsRes.ok) {
-        const rulesJson = await rulesRes.ok ? await rulesRes.json() : { rules: [] };
-        const logsJson = await logsRes.ok ? await logsRes.json() : { alerts: [] };
+        const rulesJson = await rulesRes.json();
+        const logsJson = await logsRes.json();
         setRules(rulesJson.rules || []);
         setLogs(logsJson.alerts || []);
       }
@@ -66,55 +90,87 @@ export default function AlertTriggerPanel({ ticker }: Props) {
   useEffect(() => {
     fetchRulesAndLogs();
 
-    const ws = new WebSocket("ws://localhost:8000/api/v1/alerts/ws/1");
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.event === "alert_triggered") {
-          // Trigger a beautiful visual alert toast!
-          setMessageToast({
-            text: `🔔 REAL-TIME PUSH: ${payload.title} - ${payload.message}`,
-            type: "alert",
-          });
-          
-          // Flash clean toast out in 6 seconds
-          setTimeout(() => setMessageToast(null), 6000);
+    if (!userId) return;
 
-          // Append to log history dynamically!
-          setLogs((prev) => [
-            {
-              id: Date.now(),
-              ticker: payload.ticker,
-              title: payload.title,
-              message: payload.message,
-              severity: payload.severity,
-              channel: "push",
-              delivered_at: payload.timestamp
-            },
-            ...prev
-          ]);
+    const wsProto = apiUrl.startsWith("https") ? "wss" : "ws";
+    const wsUrl = `${wsProto}://${apiUrl.replace(/^https?:\/\//, "")}/api/v1/alerts/ws/${userId}`;
+    
+    let ws: WebSocket;
+    let reconnectTimeout: any;
+
+    const connectWebSocket = () => {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("Push alerts WebSocket opened.");
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.event === "alert_triggered") {
+            // Trigger a beautiful visual alert toast!
+            setMessageToast({
+              text: `🔔 REAL-TIME PUSH: ${payload.title} - ${payload.message}`,
+              type: "alert",
+            });
+            
+            // Flash clean toast out in 6 seconds
+            setTimeout(() => setMessageToast(null), 6000);
+
+            // Append to log history dynamically!
+            setLogs((prev) => [
+              {
+                id: Date.now(),
+                ticker: payload.ticker,
+                title: payload.title,
+                message: payload.message,
+                severity: payload.severity,
+                channel: "push",
+                delivered_at: payload.timestamp || new Date().toISOString()
+              },
+              ...prev
+            ]);
+          }
+        } catch (err) {
+          console.warn("WebSocket parse error:", err);
         }
-      } catch (err) {
-        console.warn("WebSocket parse error:", err);
-      }
+      };
+
+      ws.onclose = () => {
+        console.log("Push alerts WebSocket closed. Reconnecting in 5s...");
+        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("Push alerts WebSocket error:", err);
+        ws.close();
+      };
     };
 
-    ws.onclose = () => {
-      console.log("Push alerts WebSocket closed.");
-    };
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
     };
-  }, [ticker]);
+  }, [ticker, userId]);
 
   // Create alert rule
   async function handleCreateRule(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/v1/alerts/rules?user_id=1", {
+      const res = await fetch(`${apiUrl}/api/v1/alerts/rules`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
           ticker: ticker,
           trigger_type: triggerType,
@@ -137,9 +193,12 @@ export default function AlertTriggerPanel({ ticker }: Props) {
   // Toggle active status or mute status
   async function handleToggleRule(ruleId: number, active: boolean) {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/alerts/rules/${ruleId}?user_id=1`, {
+      const res = await fetch(`${apiUrl}/api/v1/alerts/rules/${ruleId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ is_active: active })
       });
       if (res.ok) {
@@ -153,9 +212,12 @@ export default function AlertTriggerPanel({ ticker }: Props) {
   // Mute rule for 24 hours
   async function handleMuteRule(ruleId: number, mute: boolean) {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/alerts/rules/${ruleId}?user_id=1`, {
+      const res = await fetch(`${apiUrl}/api/v1/alerts/rules/${ruleId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ mute_duration_hours: mute ? 24 : 0 })
       });
       if (res.ok) {
@@ -169,8 +231,9 @@ export default function AlertTriggerPanel({ ticker }: Props) {
   // Delete rule
   async function handleDeleteRule(ruleId: number) {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/alerts/rules/${ruleId}?user_id=1`, {
-        method: "DELETE"
+      const res = await fetch(`${apiUrl}/api/v1/alerts/rules/${ruleId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         fetchRulesAndLogs();

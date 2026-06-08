@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../../context/LanguageContext";
-import LanguageSelector from "../../../components/common/LanguageSelector";
+import Header from "../../../components/common/Header";
 import Spinner from "../../../components/common/Spinner";
+import AlertModal from "../../../components/common/AlertModal";
 import {
   AreaChart,
   Area,
@@ -99,6 +100,12 @@ export default function DeveloperPortal() {
   // Alerts & Messages
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Custom alert modal states
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState<"success" | "error" | "info">("info");
 
   const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -390,7 +397,10 @@ export default function DeveloperPortal() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+    setAlertTitle("Copied");
+    setAlertMessage("Copied to clipboard!");
+    setAlertType("success");
+    setAlertOpen(true);
   };
 
   // Setup donut chart colors
@@ -411,41 +421,6 @@ export default function DeveloperPortal() {
         <div className="absolute -top-40 left-20 h-[500px] w-[500px] rounded-full bg-electric-500/[0.04] blur-[150px]" />
         <div className="absolute bottom-10 right-10 h-[400px] w-[400px] rounded-full bg-indigo-500/[0.03] blur-[120px]" />
       </div>
-
-      {/* Top Navbar */}
-      <nav className="relative z-20 border-b border-white/5 bg-navy-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-electric-500 to-electric-600">
-                <span className="text-sm font-bold text-white">K</span>
-              </div>
-              <span className="text-base font-bold text-white">{t("dashboard.title")}</span>
-            </Link>
-            <Link href="/dashboard" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              🏠 Dashboard Home
-            </Link>
-            <Link href="/dashboard/portfolio" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              💼 AI Portfolio Advisor
-            </Link>
-            <Link href="/dashboard/backtest" className="text-xs font-semibold text-gray-300 hover:text-white transition pl-4 border-l border-white/10 hidden md:block">
-              📈 Historical Backtester
-            </Link>
-            <Link href="/dashboard/developer" className="text-xs font-semibold text-electric-400 hover:text-electric-300 transition pl-4 border-l border-white/10 hidden md:block">
-              ⚡ Developer Portal
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="badge-blue">{user?.plan?.toUpperCase()} PLAN</span>
-            <span className="text-sm text-gray-400">{user?.full_name || user?.email}</span>
-            <LanguageSelector />
-            <button onClick={handleLogout} className="nav-link text-xs hover:text-rose-400">
-              {t("common.logout")}
-            </button>
-          </div>
-        </div>
-      </nav>
 
       {/* Main Container */}
       <main className="relative z-10 mx-auto max-w-7xl px-6 py-8">
@@ -1050,6 +1025,14 @@ export default function DeveloperPortal() {
           </div>
         </div>
       </main>
+
+      <AlertModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+      />
     </div>
   );
 }

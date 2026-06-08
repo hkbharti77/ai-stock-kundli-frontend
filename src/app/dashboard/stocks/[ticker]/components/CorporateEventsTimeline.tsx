@@ -101,7 +101,7 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
       {/* ── LEFT COLUMN: BSE/NSE Corporate Action Timeline (7/12 width) ── */}
       <div className="glass-card p-6 lg:col-span-7 flex flex-col gap-5 border border-indigo-500/10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
-        
+
         <div>
           <h3 className="text-base font-bold text-white tracking-wide">
             Exchange Filings & Corporate Actions Timeline
@@ -133,11 +133,11 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
                     })}
                   </span>
                 </div>
-                
+
                 <h4 className="text-sm font-semibold text-slate-200 mt-2 tracking-wide group-hover:text-white transition-colors duration-200">
                   {ev.title}
                 </h4>
-                
+
                 <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
                   {ev.description}
                 </p>
@@ -174,11 +174,10 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
                       {(sig.followers_count / 1000000).toFixed(1)}M Reach
                     </span>
                   </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
-                    isPos
-                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                      : "bg-rose-500/15 text-rose-400 border-rose-500/30"
-                  }`}>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${isPos
+                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                    : "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                    }`}>
                     {isPos ? "BULLISH" : "BEARISH"}
                   </span>
                 </div>
