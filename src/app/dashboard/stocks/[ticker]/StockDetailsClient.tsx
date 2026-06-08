@@ -635,7 +635,7 @@ export default function StockDetailsClient() {
             priceData = await priceRes.json();
           }
 
-          if (profileData && profileData.market_cap !== null && priceData && priceData.prices && priceData.prices.length > 0) {
+          if (profileData && priceData && priceData.prices && priceData.prices.length > 0) {
             setProfile(profileData);
             
             // Try to load financials
@@ -705,7 +705,7 @@ export default function StockDetailsClient() {
       }),
     ])
       .then(([profileData, finData, priceData]) => {
-        if (!profileData || profileData.market_cap === null || !priceData || !priceData.prices || priceData.prices.length === 0) {
+        if (!profileData || !priceData || !priceData.prices || priceData.prices.length === 0) {
           throw new Error("Company data is incomplete or has zero prices");
         }
         setProfile(profileData);
@@ -743,7 +743,7 @@ export default function StockDetailsClient() {
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticker, router]);
+  }, [ticker]);
 
   if (loading) {
     return (
