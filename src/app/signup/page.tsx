@@ -209,9 +209,7 @@ export default function SignupPage() {
         {/* Header / Logo with beautiful floated Language Selection */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-              <span className="text-xl font-bold text-white">K</span>
-            </div>
+            <img src="/favicon.ico" alt="Stock Kundli Logo" className="h-12 w-12 rounded-xl shadow-lg" />
             <span className="text-2xl font-bold text-white tracking-wide">{t("common.appName")}</span>
           </div>
           <LanguageSelector />

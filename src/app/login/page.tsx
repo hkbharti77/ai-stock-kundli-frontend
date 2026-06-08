@@ -64,9 +64,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-electric-500 to-electric-600 shadow-lg shadow-electric-500/25">
-              <span className="text-xl font-bold text-white">K</span>
-            </div>
+            <img src="/favicon.ico" alt="Stock Kundli Logo" className="h-12 w-12 rounded-xl shadow-lg" />
             <span className="text-2xl font-bold text-white">Stock Kundli</span>
           </Link>
           <p className="mt-3 text-gray-400">{t("login.welcomeBack")}</p>
@@ -97,9 +95,17 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-300">
-                {t("login.password")}
-              </label>
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                  {t("login.password")}
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"

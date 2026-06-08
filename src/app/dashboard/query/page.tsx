@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../../context/LanguageContext";
@@ -57,70 +57,128 @@ interface IndexStatus {
 function MarkdownRenderer({ text }: { text: string }) {
   if (!text) return null;
 
-  // Split by double newlines to find paragraphs
-  const paragraphs = text.split("\n\n");
-
-  const parseInlineStyles = (txt: string) => {
-    // Basic regex replacements for bold and emojis/symbols
-    const parts = [];
-    const boldRegex = /\*\*(.*?)\*\*/g;
-    let match;
+  /**
+   * Parses inline markdown: **bold**, `code`, and plain text.
+   * Returns a stable React node array with keyed elements.
+   */
+  const parseInlineStyles = (txt: string, keyPrefix: string): React.ReactNode[] => {
+    const parts: React.ReactNode[] = [];
+    // Match **bold** or `inline code`
+    const inlineRegex = /(\*\*(.*?)\*\*|`([^`]+)`)/g;
+    let match: RegExpExecArray | null;
     let lastIndex = 0;
 
-    while ((match = boldRegex.exec(txt)) !== null) {
+    while ((match = inlineRegex.exec(txt)) !== null) {
       if (match.index > lastIndex) {
         parts.push(txt.substring(lastIndex, match.index));
       }
-      parts.push(
-        <strong key={match.index} className="text-emerald-400 font-bold">
-          {match[1]}
-        </strong>
-      );
-      lastIndex = boldRegex.lastIndex;
+      if (match[2] !== undefined) {
+        // Bold
+        parts.push(
+          <strong key={`${keyPrefix}-b-${match.index}`} className="text-emerald-400 font-semibold">
+            {match[2]}
+          </strong>
+        );
+      } else if (match[3] !== undefined) {
+        // Inline code
+        parts.push(
+          <code key={`${keyPrefix}-c-${match.index}`} className="bg-white/10 text-electric-300 px-1 py-0.5 rounded text-xs font-mono">
+            {match[3]}
+          </code>
+        );
+      }
+      lastIndex = inlineRegex.lastIndex;
     }
     if (lastIndex < txt.length) {
       parts.push(txt.substring(lastIndex));
     }
-
-    return parts.length > 0 ? parts : txt;
+    return parts.length > 0 ? parts : [txt];
   };
 
+  // Split into block-level sections by double newline
+  const blocks = text.split(/\n\n+/);
+
   return (
-    <div className="space-y-3 text-sm text-gray-300 leading-relaxed font-sans">
-      {paragraphs.map((p, i) => {
-        const trimmed = p.trim();
+    <div className="space-y-2 text-sm text-gray-200 leading-relaxed font-sans">
+      {blocks.map((block, i) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        // H3 heading
         if (trimmed.startsWith("### ")) {
           return (
-            <h4 key={i} className="text-base font-bold text-white mt-4 mb-2 flex items-center gap-2 border-b border-white/5 pb-1">
-              {parseInlineStyles(trimmed.replace("### ", ""))}
+            <h4 key={i} className="text-base font-bold text-white mt-4 mb-1 border-b border-white/10 pb-1">
+              {parseInlineStyles(trimmed.slice(4), `h4-${i}`)}
             </h4>
           );
         }
+
+        // H2 heading
         if (trimmed.startsWith("## ")) {
           return (
-            <h3 key={i} className="text-lg font-bold text-white mt-5 mb-3 flex items-center gap-2">
-              {parseInlineStyles(trimmed.replace("## ", ""))}
+            <h3 key={i} className="text-lg font-bold text-white mt-5 mb-2">
+              {parseInlineStyles(trimmed.slice(3), `h3-${i}`)}
             </h3>
           );
         }
-        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-          const lines = trimmed.split("\n");
+
+        // H1 heading
+        if (trimmed.startsWith("# ")) {
           return (
-            <ul key={i} className="list-disc pl-5 space-y-1.5 my-2">
-              {lines.map((line, idx) => {
-                const cleanedLine = line.replace(/^[-*]\s+/, "");
-                return (
-                  <li key={idx} className="text-gray-300">
-                    {parseInlineStyles(cleanedLine)}
-                  </li>
-                );
-              })}
+            <h2 key={i} className="text-xl font-extrabold text-white mt-6 mb-2">
+              {parseInlineStyles(trimmed.slice(2), `h2-${i}`)}
+            </h2>
+          );
+        }
+
+        // Unordered list (lines starting with - or *)
+        const lines = trimmed.split("\n");
+        const isBulletBlock = lines.every(l => /^[-*]\s/.test(l.trim()) || l.trim() === "");
+        if (isBulletBlock && lines.some(l => /^[-*]\s/.test(l.trim()))) {
+          return (
+            <ul key={i} className="list-disc pl-5 space-y-1 my-1">
+              {lines.filter(l => /^[-*]\s/.test(l.trim())).map((line, idx) => (
+                <li key={idx} className="text-gray-300">
+                  {parseInlineStyles(line.replace(/^[-*]\s+/, ""), `li-${i}-${idx}`)}
+                </li>
+              ))}
             </ul>
           );
         }
+
+        // Numbered list (lines starting with 1. 2. etc.)
+        const isNumberedBlock = lines.every(l => /^\d+\.\s/.test(l.trim()) || l.trim() === "");
+        if (isNumberedBlock && lines.some(l => /^\d+\.\s/.test(l.trim()))) {
+          return (
+            <ol key={i} className="list-decimal pl-5 space-y-1 my-1">
+              {lines.filter(l => /^\d+\.\s/.test(l.trim())).map((line, idx) => (
+                <li key={idx} className="text-gray-300">
+                  {parseInlineStyles(line.replace(/^\d+\.\s+/, ""), `ol-${i}-${idx}`)}
+                </li>
+              ))}
+            </ol>
+          );
+        }
+
+        // Mixed block: may contain multiple single-newline sentences
+        // Render each line as an inline span separated by <br/> for natural flow
+        if (lines.length > 1) {
+          return (
+            <p key={i} className="text-gray-200">
+              {lines.map((line, idx) => (
+                <span key={idx}>
+                  {parseInlineStyles(line, `span-${i}-${idx}`)}
+                  {idx < lines.length - 1 && <br />}
+                </span>
+              ))}
+            </p>
+          );
+        }
+
+        // Single-line paragraph
         return (
-          <p key={i} className="whitespace-pre-line">
-            {parseInlineStyles(trimmed)}
+          <p key={i} className="text-gray-200">
+            {parseInlineStyles(trimmed, `p-${i}`)}
           </p>
         );
       })}

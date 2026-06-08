@@ -490,9 +490,7 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
             {appBranding.logo_url ? (
               <img src={appBranding.logo_url} alt="Logo" className="h-7 w-7 rounded object-cover" />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-electric-500 to-electric-600 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-                <span className="text-sm font-bold text-white">K</span>
-              </div>
+              <img src="/favicon.ico" alt="Logo" className="h-7 w-7 rounded object-contain" />
             )}
             <span className="text-base font-bold text-white tracking-tight">
               {appBranding.brand_name || "AI Stock Kundli"}
@@ -690,11 +688,11 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
 
                 {/* Sub-menu Options */}
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/profile"
                   onClick={() => setUserMenuOpen(false)}
                   className="block px-3 py-2 text-xs font-semibold rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition"
                 >
-                  My Profile
+                  👤 My Profile
                 </Link>
 
                 {/* Inline Language Selector */}

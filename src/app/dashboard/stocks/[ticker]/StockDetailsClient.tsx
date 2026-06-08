@@ -35,6 +35,7 @@ interface CompanyProfile {
   market_cap: number | null;
   sector: string | null;
   sub_sector: string | null;
+  currency?: string;
 }
 
 interface FinancialStatement {
@@ -899,9 +900,17 @@ export default function StockDetailsClient() {
   const high52 = chartInterval === "5M" && isPremium ? metrics.high : (priceList.length > 0 ? Math.max(...priceList.map(p => p.high)) : 0);
   const low52 = chartInterval === "5M" && isPremium ? metrics.low : (priceList.length > 0 ? Math.min(...priceList.map(p => p.low)) : 0);
 
+  const currencySymbol = profile?.currency === "USD" ? "$" : "₹";
+
   // Format helpers
   const formatMcap = (mcap: number | null) => {
     if (!mcap) return "—";
+    if (profile?.currency === "USD") {
+      if (mcap >= 1e12) return `$${(mcap / 1e12).toFixed(2)}T`;
+      if (mcap >= 1e9) return `$${(mcap / 1e9).toFixed(2)}B`;
+      if (mcap >= 1e6) return `$${(mcap / 1e6).toFixed(2)}M`;
+      return `$${mcap.toLocaleString()}`;
+    }
     const cr = mcap / 10000000;
     if (cr >= 100) return `₹${(cr / 100).toFixed(2)} L Cr`;
     return `₹${cr.toFixed(0)} Cr`;
@@ -1079,7 +1088,7 @@ export default function StockDetailsClient() {
                 priceFlash === "down" ? "bg-rose-500/15 ring-1 ring-rose-500/30" : ""
               }`}>
                 <span className="text-3xl font-mono font-bold">
-                  ₹{getActivePrice()?.close?.toFixed(2) || "—"}
+                  {currencySymbol}{getActivePrice()?.close?.toFixed(2) || "—"}
                 </span>
                 <span className={`text-sm font-semibold font-mono ${priceChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                   {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(2)} ({priceChangePct.toFixed(2)}%)
@@ -1097,7 +1106,7 @@ export default function StockDetailsClient() {
               </p>
             </div>
           </div>
-
+ 
           <div className="border-t border-white/5 mt-6 pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider">Market Cap</p>
@@ -1105,11 +1114,11 @@ export default function StockDetailsClient() {
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider">52-Week High</p>
-              <p className="text-base font-semibold mt-1 font-mono text-emerald-400">₹{high52.toFixed(2)}</p>
+              <p className="text-base font-semibold mt-1 font-mono text-emerald-400">{currencySymbol}{high52.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider">52-Week Low</p>
-              <p className="text-base font-semibold mt-1 font-mono text-rose-400">₹{low52.toFixed(2)}</p>
+              <p className="text-base font-semibold mt-1 font-mono text-rose-400">{currencySymbol}{low52.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider">Volume (Avg)</p>
@@ -1293,7 +1302,7 @@ export default function StockDetailsClient() {
                           </div>
                           <div>
                             VWAP: <span className="text-white font-bold">
-                              ₹{((getActivePrice() as any).vwap ?? getActivePrice().close).toFixed(2)}
+                              {currencySymbol}{((getActivePrice() as any).vwap ?? getActivePrice().close).toFixed(2)}
                             </span>
                           </div>
                           <div>
