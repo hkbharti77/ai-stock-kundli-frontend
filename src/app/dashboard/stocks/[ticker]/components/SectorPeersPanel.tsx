@@ -153,7 +153,10 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
   useEffect(() => {
     async function fetchPeers() {
       try {
-        const res = await fetch(`/api/v1/companies/${ticker}/peers`);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`${apiUrl}/api/v1/companies/${ticker}/peers`, { headers });
         if (res.ok) {
           const data = await res.json();
           setPeerData(data);
@@ -210,6 +213,17 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
 
       {/* Peer Grid Table */}
       <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-950/40 backdrop-blur-md mb-8">
+        {peers.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800/60 text-slate-400 mx-auto">
+              <FiUsers className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-semibold text-slate-400">Peer Benchmarking Data Loading</p>
+            <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+              Sector peers are being identified from the NSE/BSE sector classification. This data will populate once the Sector Analyst agent completes its run.
+            </p>
+          </div>
+        ) : (
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-800/80 bg-slate-900/50">
@@ -225,22 +239,22 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
             {peers.map((peer, idx) => {
               const isTarget = peer.ticker.toUpperCase() === ticker.toUpperCase();
               return (
-                <tr 
+                <tr
                   key={peer.ticker}
                   className={`transition-colors duration-250 ${
-                    isTarget 
-                      ? "bg-blue-500/10 hover:bg-blue-500/15" 
+                    isTarget
+                      ? "bg-blue-500/10 hover:bg-blue-500/15"
                       : "hover:bg-slate-900/30"
                   }`}
                 >
                   <td className="py-4 px-5">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-md ${
-                        isTarget 
+                        isTarget
                           ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white"
                           : "bg-slate-800 text-slate-300 border border-slate-700/50"
                       }`}>
-                        {peer.ticker}
+                        {peer.ticker.slice(0, 2)}
                       </div>
                       <div>
                         <div className="font-semibold text-sm text-slate-200 flex items-center gap-1.5">
@@ -251,7 +265,7 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
                             </span>
                           )}
                         </div>
-                        <div className="text-[10.5px] text-slate-500 font-medium">Peer benchmark row</div>
+                        <div className="text-[10.5px] text-slate-500 font-medium">{peer.sector}</div>
                       </div>
                     </div>
                   </td>
@@ -279,6 +293,7 @@ export default function SectorPeersPanel({ ticker, agentData }: SectorPeersPanel
             })}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* Strengths & Concerns Summary Box */}

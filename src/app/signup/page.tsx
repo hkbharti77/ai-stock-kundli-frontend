@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../context/LanguageContext";
 import LanguageSelector from "../../components/common/LanguageSelector";
+import { useAuth } from "../../context/AuthContext";
 
 /* ═══════════════════════════════════════════════════════════
    AI Stock Kundli — 4-Step Registration Wizard
@@ -15,9 +16,17 @@ type Step = 1 | 2 | 3 | 4;
 export default function SignupPage() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/dashboard");
+    }
+  }, [user, authLoading, router]);
 
   // ── Step State Managers ────────────────────────────────────
   const [email, setEmail] = useState("");

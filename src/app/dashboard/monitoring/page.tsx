@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslation } from "../../../context/LanguageContext";
 
 interface AgentMetric {
   agent_type: string;
@@ -33,12 +34,15 @@ interface SignalMetric {
 }
 
 export default function InternalMonitoringDashboard() {
+  const { t, language } = useTranslation();
   const [agents, setAgents] = useState<AgentMetric[]>([]);
   const [overall, setOverall] = useState<OverallMetrics | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapItem[]>([]);
   const [signals, setSignals] = useState<SignalMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const isHindi = language === "hi";
 
   const fetchMetrics = async () => {
     try {
@@ -56,7 +60,11 @@ export default function InternalMonitoringDashboard() {
       }
     } catch (err) {
       console.error("Monitoring fetch error:", err);
-      setError("Unable to connect to telemetry pipelines. Showing fallback offline statistics.");
+      setError(
+        isHindi 
+          ? "टेलीमेट्री पाइपलाइन से कनेक्ट नहीं हो सका। फॉलबैक ऑफलाइन आंकड़े दिखा रहे हैं।"
+          : "Unable to connect to telemetry pipelines. Showing fallback offline statistics."
+      );
       // Seed high-end mock parameters to keep UI premium if offline
       setOverall({
         total_calls: 874,
@@ -107,11 +115,15 @@ export default function InternalMonitoringDashboard() {
           <div>
             <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-widest">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Live Operational Telemetry
+              {isHindi ? "लाइव ऑपरेशनल टेलीमेट्री" : "Live Operational Telemetry"}
             </div>
-            <h1 className="text-3xl font-extrabold text-white mt-1 tracking-tight">AI Stock Kundli Monitoring Console</h1>
+            <h1 className="text-3xl font-extrabold text-white mt-1 tracking-tight">
+              {isHindi ? "एआई स्टॉक कुंडली मॉनिटरिंग कंसोल" : "AI Stock Kundli Monitoring Console"}
+            </h1>
             <p className="text-sm text-gray-400 mt-1 leading-relaxed max-w-2xl">
-              Real-time diagnostics tracking multi-agent query latency, computational pricing metrics, user adoption clickshares, and consensus accuracy thresholds.
+              {isHindi
+                ? "मल्टी-एजेंट क्वेरी लेटेंसी, कम्प्यूटेशनल प्राइसिंग मेट्रिक्स, यूजर एडॉप्शन क्लिकशेयर, और कन्सेन्सस एक्यूरेसी थ्रेशोल्ड्स को ट्रैक करने वाले रियल-टाइम डायग्नोस्टिक्स।"
+                : "Real-time diagnostics tracking multi-agent query latency, computational pricing metrics, user adoption clickshares, and consensus accuracy thresholds."}
             </p>
           </div>
           <div className="flex gap-3">
@@ -119,13 +131,13 @@ export default function InternalMonitoringDashboard() {
               onClick={fetchMetrics} 
               className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold uppercase tracking-wider transition duration-300"
             >
-              Force Refresh
+              {isHindi ? "रीफ्रेश करें" : "Force Refresh"}
             </button>
             <Link 
               href="/dashboard"
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-xs font-bold uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/10"
             >
-              Back to Dashboard
+              {isHindi ? "डैशबोर्ड पर वापस जाएं" : "Back to Dashboard"}
             </Link>
           </div>
         </div>
@@ -139,9 +151,13 @@ export default function InternalMonitoringDashboard() {
               </svg>
             </div>
             <div>
-              <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">Operational Budget Alert</h4>
+              <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">
+                {isHindi ? "ऑपरेशनल बजट अलर्ट" : "Operational Budget Alert"}
+              </h4>
               <p className="text-xs text-rose-300 mt-0.5 leading-relaxed">
-                Warning: The average consensus aggregation cost is **₹{overall.avg_report_cost_inr.toFixed(2)}**, which exceeds the ₹10 ceiling limit. Review agent token lengths to prevent billing exhaustion.
+                {isHindi
+                  ? `चेतावनी: औसत कन्सेंसस एग्रीगेशन कॉस्ट **₹${overall.avg_report_cost_inr.toFixed(2)}** है, जो ₹10 सीलिंग लिमिट से अधिक है। बिलिंग एग्जॉशन को रोकने के लिए एजेंट टोकन लेंथ की समीक्षा करें।`
+                  : `Warning: The average consensus aggregation cost is **₹${overall.avg_report_cost_inr.toFixed(2)}**, which exceeds the ₹10 ceiling limit. Review agent token lengths to prevent billing exhaustion.`}
               </p>
             </div>
           </div>
@@ -156,36 +172,48 @@ export default function InternalMonitoringDashboard() {
         {/* Key Operational Indicators */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5 border-white/5 bg-white/[0.01] rounded-2xl">
-            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">Total Report Invocations</span>
+            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">
+              {isHindi ? "कुल रिपोर्ट इनवोकेशन्स" : "Total Report Invocations"}
+            </span>
             <div className="text-2xl font-black text-white mt-2 font-mono">{overall?.total_calls}</div>
             <div className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1 font-semibold">
-              <span>↑ 14%</span> <span className="text-gray-500 font-normal">vs past 7d</span>
+              <span>↑ 14%</span> 
+              <span className="text-gray-500 font-normal">
+                {isHindi ? "पिछले 7 दिनों से" : "vs past 7d"}
+              </span>
             </div>
           </div>
 
           <div className="glass-card p-5 border-white/5 bg-white/[0.01] rounded-2xl">
-            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">Total Infrastructure Cost</span>
+            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">
+              {isHindi ? "कुल इंफ्रास्ट्रक्चर कॉस्ट" : "Total Infrastructure Cost"}
+            </span>
             <div className="text-2xl font-black text-white mt-2 font-mono">₹{overall?.total_inr_spent.toFixed(1)}</div>
             <div className="text-[10px] text-gray-500 mt-1">
-              Estimated model token expense
+              {isHindi ? "अनुमानित मॉडल टोकन खर्च" : "Estimated model token expense"}
             </div>
           </div>
 
           <div className="glass-card p-5 border-white/5 bg-white/[0.01] rounded-2xl relative overflow-hidden">
-            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">Average Report Cost</span>
+            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">
+              {isHindi ? "औसत रिपोर्ट कॉस्ट" : "Average Report Cost"}
+            </span>
             <div className={`text-2xl font-black mt-2 font-mono ${overall?.cost_warning_active ? "text-rose-400" : "text-emerald-400"}`}>
               ₹{overall?.avg_report_cost_inr.toFixed(2)}
             </div>
             <div className="text-[10px] text-gray-500 mt-1">
-              Ceiling threshold: <span className="font-bold font-mono">₹10.00</span>
+              {isHindi ? "सीलिंग थ्रेशोल्ड: " : "Ceiling threshold: "}
+              <span className="font-bold font-mono">₹10.00</span>
             </div>
           </div>
 
           <div className="glass-card p-5 border-white/5 bg-white/[0.01] rounded-2xl">
-            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">Consensus System Health</span>
+            <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest block">
+              {isHindi ? "कन्सेंसस सिस्टम हेल्थ" : "Consensus System Health"}
+            </span>
             <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">{overall?.system_health_pct}%</div>
             <div className="text-[10px] text-gray-500 mt-1">
-              Active agent heartbeats
+              {isHindi ? "एक्टिव एजेंट हार्टबीट्स" : "Active agent heartbeats"}
             </div>
           </div>
         </div>
@@ -195,16 +223,18 @@ export default function InternalMonitoringDashboard() {
           
           {/* Telemetry Grid */}
           <div className="lg:col-span-2 glass-card p-6 border-white/5 bg-white/[0.01] rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-3">Multi-Agent Computational Latency & Cost</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-3">
+              {isHindi ? "मल्टी-एजेंट कम्प्यूटेशनल लेटेंसी और कॉस्ट" : "Multi-Agent Computational Latency & Cost"}
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="text-gray-500 border-b border-white/5 uppercase tracking-wider text-[9px] font-bold">
-                    <th className="py-2.5">Agent Module</th>
-                    <th className="py-2.5">Avg Latency</th>
-                    <th className="py-2.5">Total Runs</th>
-                    <th className="py-2.5">Avg Cost (INR)</th>
-                    <th className="py-2.5 text-right">Error Rate</th>
+                    <th className="py-2.5">{isHindi ? "एजेंट मॉड्यूल" : "Agent Module"}</th>
+                    <th className="py-2.5">{isHindi ? "औसत लेटेंसी" : "Avg Latency"}</th>
+                    <th className="py-2.5">{isHindi ? "कुल रन्स" : "Total Runs"}</th>
+                    <th className="py-2.5">{isHindi ? "औसत कॉस्ट (INR)" : "Avg Cost (INR)"}</th>
+                    <th className="py-2.5 text-right">{isHindi ? "एरर रेट" : "Error Rate"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -228,7 +258,9 @@ export default function InternalMonitoringDashboard() {
 
           {/* User Adoption Heatmap */}
           <div className="glass-card p-6 border-white/5 bg-white/[0.01] rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-3">Feature Adoption Click Share</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-3">
+              {isHindi ? "फीचर एडॉप्शन क्लिक शेयर" : "Feature Adoption Click Share"}
+            </h3>
             <div className="space-y-4">
               {heatmap.map((item, idx) => (
                 <div key={idx} className="space-y-1">
@@ -242,7 +274,9 @@ export default function InternalMonitoringDashboard() {
                       style={{ width: `${item.adoption_pct}%` }}
                     />
                   </div>
-                  <span className="text-[9px] text-gray-500 font-mono block tracking-wide">{item.clicks} recorded interactions</span>
+                  <span className="text-[9px] text-gray-500 font-mono block tracking-wide">
+                    {item.clicks} {isHindi ? "रिकॉर्डेड इंटरैक्शन्स" : "recorded interactions"}
+                  </span>
                 </div>
               ))}
             </div>
@@ -251,7 +285,9 @@ export default function InternalMonitoringDashboard() {
 
         {/* Signal Accuracy Breakdown */}
         <div className="glass-card p-6 border-white/5 bg-white/[0.01] rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-3">Consensus Signal Rating Distribution</h3>
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/5 pb-3">
+            {isHindi ? "कन्सेंसस सिग्नल रेटिंग डिस्ट्रिब्यूशन" : "Consensus Signal Rating Distribution"}
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {signals.map((sig, idx) => {
               const bgMap: Record<string, string> = {
@@ -265,12 +301,16 @@ export default function InternalMonitoringDashboard() {
               return (
                 <div key={idx} className={`p-4 border rounded-xl flex flex-col justify-between space-y-2 ${style}`}>
                   <div>
-                    <span className="text-[9px] font-black uppercase tracking-wider block opacity-60">Consensus rating</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider block opacity-60">
+                      {isHindi ? "कन्सेंसस रेटिंग" : "Consensus rating"}
+                    </span>
                     <h4 className="text-sm font-black mt-1">{sig.signal}</h4>
                   </div>
                   <div>
                     <div className="text-lg font-black font-mono mt-2">{sig.count}</div>
-                    <span className="text-[9px] opacity-60 font-mono block mt-0.5">Average stock value: ₹{sig.avg_price_at_trigger.toFixed(1)}</span>
+                    <span className="text-[9px] opacity-60 font-mono block mt-0.5">
+                      {isHindi ? "औसत स्टॉक वैल्यू: " : "Average stock value: "}₹{sig.avg_price_at_trigger.toFixed(1)}
+                    </span>
                   </div>
                 </div>
               );

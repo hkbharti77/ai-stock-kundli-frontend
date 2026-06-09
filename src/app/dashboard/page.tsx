@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
+  const [kundliUsed, setKundliUsed] = useState<number>(0);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "alert" } | null>(null);
 
   // Custom alert modal states
@@ -127,14 +128,22 @@ export default function DashboardPage() {
           headers: { Authorization: `Bearer ${token}` },
         }).then(res => res && res.ok ? res.json() : { alerts: [] });
 
-        return Promise.all([fetchWatchlistPromise, fetchAlertsPromise]);
+        // Fetch today's Kundli usage count
+        const fetchUsagePromise = fetch(`${apiUrl}/api/v1/auth/me/usage`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res && res.ok ? res.json() : { used: 0 });
+
+        return Promise.all([fetchWatchlistPromise, fetchAlertsPromise, fetchUsagePromise]);
       })
-      .then(([watchlistData, alertsData]) => {
+      .then(([watchlistData, alertsData, usageData]) => {
         if (Array.isArray(watchlistData)) {
           setWatchlist(watchlistData);
         }
         if (alertsData && Array.isArray(alertsData.alerts)) {
           setAlerts(alertsData.alerts);
+        }
+        if (usageData && typeof usageData.used === "number") {
+          setKundliUsed(usageData.used);
         }
       })
       .catch((err) => {
@@ -607,7 +616,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">{t("dashboard.kundlisToday")}</span>
                   <span className="font-mono text-white">
-                    0 / {user?.plan?.toLowerCase() === "free" ? "3" : user?.plan?.toLowerCase() === "starter" ? "20" : "Unlimited"}
+                    {kundliUsed} / {user?.plan?.toLowerCase() === "free" ? "3" : user?.plan?.toLowerCase() === "starter" ? "20" : "Unlimited"}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">

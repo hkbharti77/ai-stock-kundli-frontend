@@ -227,6 +227,8 @@ export default function PortfolioPage() {
   const [calcManualPrice, setCalcManualPrice] = useState("");
   const [calcResult, setCalcResult] = useState<PositionSizeResponse | null>(null);
   const [calculating, setCalculating] = useState(false);
+  // Field-level errors for Position Sizing Calculator
+  const [calcErrors, setCalcErrors] = useState<{ capital?: string; stopLoss?: string; takeProfit?: string; manualPrice?: string }>({});
   // Autocomplete suggestions
   const [calcSuggestions, setCalcSuggestions] = useState<TickerSuggestion[]>([]);
   const [showCalcDropdown, setShowCalcDropdown] = useState(false);
@@ -242,6 +244,8 @@ export default function PortfolioPage() {
   const [builderResult, setBuilderResult] = useState<PortfolioBuilderResponse | null>(null);
   const [building, setBuilding] = useState(false);
   const [applyingBuilder, setApplyingBuilder] = useState(false);
+  // Field-level errors for Builder
+  const [builderCapitalError, setBuilderCapitalError] = useState<string>("");
 
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -513,6 +517,27 @@ export default function PortfolioPage() {
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTicker || !newShares || !newPrice) return;
+
+    const sharesVal = parseFloat(newShares);
+    const priceVal = parseFloat(newPrice);
+
+    if (isNaN(sharesVal) || sharesVal <= 0) {
+      showToast("Shares must be a positive number.", "error");
+      return;
+    }
+    if (sharesVal > 99_999_999) {
+      showToast("Shares quantity cannot exceed 99,999,999. Please enter a realistic value.", "error");
+      return;
+    }
+    if (isNaN(priceVal) || priceVal <= 0) {
+      showToast("Average price must be a positive number.", "error");
+      return;
+    }
+    if (priceVal > 9_999_999_999) {
+      showToast("Price value is unrealistically large. Please check and try again.", "error");
+      return;
+    }
+
     setAdding(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/portfolio/holding`, {
@@ -523,8 +548,8 @@ export default function PortfolioPage() {
         },
         body: JSON.stringify({
           ticker: newTicker.trim().toUpperCase(),
-          shares: parseFloat(newShares),
-          average_price: parseFloat(newPrice),
+          shares: sharesVal,
+          average_price: priceVal,
         }),
       });
 
@@ -552,6 +577,22 @@ export default function PortfolioPage() {
   };
 
   const handleSaveEdit = async (holdingId: number) => {
+    const sharesVal = parseFloat(editShares);
+    const priceVal = parseFloat(editPrice);
+
+    if (isNaN(sharesVal) || sharesVal <= 0) {
+      showToast("Shares must be a positive number.", "error");
+      return;
+    }
+    if (sharesVal > 99_999_999) {
+      showToast("Shares quantity cannot exceed 99,999,999. Please enter a realistic value.", "error");
+      return;
+    }
+    if (isNaN(priceVal) || priceVal <= 0) {
+      showToast("Average price must be a positive number.", "error");
+      return;
+    }
+
     try {
       const res = await fetch(`${apiUrl}/api/v1/portfolio/holding/${holdingId}`, {
         method: "PUT",
@@ -560,8 +601,8 @@ export default function PortfolioPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          shares: parseFloat(editShares),
-          average_price: parseFloat(editPrice),
+          shares: sharesVal,
+          average_price: priceVal,
         }),
       });
 
@@ -676,6 +717,34 @@ export default function PortfolioPage() {
   const handleCalculatePositionSize = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!calcTicker) return;
+
+    // Field-level validation
+    const errors: typeof calcErrors = {};
+    const capital = parseFloat(calcCapital);
+    const stopLoss = parseFloat(calcStopLossPct);
+    const takeProfit = parseFloat(calcTakeProfitPct);
+    const manualPrice = calcManualPrice ? parseFloat(calcManualPrice) : null;
+
+    if (isNaN(capital) || capital <= 0)             errors.capital     = "Enter a positive capital amount.";
+    else if (capital < 1000)                         errors.capital     = "Minimum capital is ₹1,000.";
+    else if (capital > 100_00_00_000)                errors.capital     = "Maximum capital is ₹100 Cr (₹1,000,000,000).";
+
+    if (isNaN(stopLoss) || stopLoss <= 0)            errors.stopLoss    = "Stop-loss must be between 0.1% and 50%.";
+    else if (stopLoss > 50)                          errors.stopLoss    = "Stop-loss cannot exceed 50%.";
+
+    if (isNaN(takeProfit) || takeProfit <= 0)        errors.takeProfit  = "Take-profit must be between 0.1% and 500%.";
+    else if (takeProfit > 500)                       errors.takeProfit  = "Take-profit cannot exceed 500%.";
+
+    if (manualPrice !== null) {
+      if (isNaN(manualPrice) || manualPrice <= 0)    errors.manualPrice = "Price must be a positive number.";
+      else if (manualPrice > 1_00_000)               errors.manualPrice = "Price cannot exceed ₹1,00,000.";
+    }
+
+    if (takeProfit <= stopLoss) errors.takeProfit = "Take-profit must be greater than stop-loss.";
+
+    setCalcErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setCalculating(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/portfolio/position-size`, {
@@ -686,11 +755,11 @@ export default function PortfolioPage() {
         },
         body: JSON.stringify({
           ticker: calcTicker.trim().toUpperCase(),
-          total_capital: parseFloat(calcCapital),
+          total_capital: capital,
           risk_profile: calcRiskProfile,
-          stop_loss_pct: parseFloat(calcStopLossPct),
-          take_profit_pct: parseFloat(calcTakeProfitPct),
-          manual_price: calcManualPrice ? parseFloat(calcManualPrice) : null,
+          stop_loss_pct: stopLoss,
+          take_profit_pct: takeProfit,
+          manual_price: manualPrice,
         }),
       });
       if (!res.ok) throw new Error("Could not calculate position size.");
@@ -1145,6 +1214,8 @@ export default function PortfolioPage() {
                               {isEditing ? (
                                 <input
                                   type="number"
+                                  min="0.0001"
+                                  max="99999999"
                                   step="0.0001"
                                   value={editShares}
                                   onChange={(e) => setEditShares(e.target.value)}
@@ -1479,10 +1550,17 @@ export default function PortfolioPage() {
                   <input
                     type="number"
                     required
+                    min="1000"
+                    max="1000000000"
+                    step="1000"
                     value={calcCapital}
-                    onChange={(e) => setCalcCapital(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono font-semibold"
+                    onChange={(e) => { setCalcCapital(e.target.value); setCalcErrors((p) => ({ ...p, capital: undefined })); }}
+                    className={`w-full bg-white/5 border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none font-mono font-semibold transition ${
+                      calcErrors.capital ? "border-rose-500 focus:border-rose-400" : "border-white/10 focus:border-emerald-500"
+                    }`}
                   />
+                  {calcErrors.capital && <p className="mt-1 text-[11px] text-rose-400 flex items-center gap-1"><svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>{calcErrors.capital}</p>}
+                  <p className="mt-0.5 text-[10px] text-gray-600">Min ₹1,000 · Max ₹100 Cr</p>
                 </div>
 
                 <div>
@@ -1536,11 +1614,17 @@ export default function PortfolioPage() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
+                    max="100000"
                     placeholder="Auto-fetched if left blank"
                     value={calcManualPrice}
-                    onChange={(e) => setCalcManualPrice(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono"
+                    onChange={(e) => { setCalcManualPrice(e.target.value); setCalcErrors((p) => ({ ...p, manualPrice: undefined })); }}
+                    className={`w-full bg-white/5 border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none font-mono transition ${
+                      calcErrors.manualPrice ? "border-rose-500 focus:border-rose-400" : "border-white/10 focus:border-emerald-500"
+                    }`}
                   />
+                  {calcErrors.manualPrice && <p className="mt-1 text-[11px] text-rose-400 flex items-center gap-1"><svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>{calcErrors.manualPrice}</p>}
+                  <p className="mt-0.5 text-[10px] text-gray-600">Max ₹1,00,000</p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -1568,11 +1652,17 @@ export default function PortfolioPage() {
                     <input
                       type="number"
                       step="0.1"
+                      min="0.1"
+                      max="50"
                       required
                       value={calcStopLossPct}
-                      onChange={(e) => setCalcStopLossPct(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono"
+                      onChange={(e) => { setCalcStopLossPct(e.target.value); setCalcErrors((p) => ({ ...p, stopLoss: undefined })); }}
+                      className={`w-full bg-white/5 border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none font-mono transition ${
+                        calcErrors.stopLoss ? "border-rose-500 focus:border-rose-400" : "border-white/10 focus:border-emerald-500"
+                      }`}
                     />
+                    {calcErrors.stopLoss && <p className="mt-1 text-[11px] text-rose-400 flex items-center gap-1"><svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>{calcErrors.stopLoss}</p>}
+                    <p className="mt-0.5 text-[10px] text-gray-600">0.1% – 50%</p>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
@@ -1581,11 +1671,17 @@ export default function PortfolioPage() {
                     <input
                       type="number"
                       step="0.1"
+                      min="0.1"
+                      max="500"
                       required
                       value={calcTakeProfitPct}
-                      onChange={(e) => setCalcTakeProfitPct(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono"
+                      onChange={(e) => { setCalcTakeProfitPct(e.target.value); setCalcErrors((p) => ({ ...p, takeProfit: undefined })); }}
+                      className={`w-full bg-white/5 border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none font-mono transition ${
+                        calcErrors.takeProfit ? "border-rose-500 focus:border-rose-400" : "border-white/10 focus:border-emerald-500"
+                      }`}
                     />
+                    {calcErrors.takeProfit && <p className="mt-1 text-[11px] text-rose-400 flex items-center gap-1"><svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>{calcErrors.takeProfit}</p>}
+                    <p className="mt-0.5 text-[10px] text-gray-600">0.1% – 500% · must exceed stop-loss</p>
                   </div>
                 </div>
 
@@ -1790,10 +1886,27 @@ export default function PortfolioPage() {
                     <input
                       type="number"
                       required
+                      min="10000"
+                      max="1000000000"
+                      step="1000"
                       value={builderCapital}
-                      onChange={(e) => setBuilderCapital(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-lg font-mono font-bold text-white focus:outline-none focus:border-emerald-500"
+                      onChange={(e) => {
+                        setBuilderCapital(e.target.value);
+                        setBuilderCapitalError("");
+                      }}
+                      className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-lg font-mono font-bold text-white focus:outline-none transition ${
+                        builderCapitalError ? "border-rose-500 focus:border-rose-400" : "border-white/10 focus:border-emerald-500"
+                      }`}
                     />
+                    {builderCapitalError && (
+                      <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1">
+                        <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {builderCapitalError}
+                      </p>
+                    )}
+                    <p className="mt-1 text-[10px] text-gray-600">Min ₹10,000 · Max ₹100 Cr</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1832,7 +1945,23 @@ export default function PortfolioPage() {
                 <div className="pt-6 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => setBuilderStep(2)}
+                    onClick={() => {
+                      const cap = parseFloat(builderCapital);
+                      if (isNaN(cap) || cap <= 0) {
+                        setBuilderCapitalError("Enter a positive capital amount.");
+                        return;
+                      }
+                      if (cap < 10000) {
+                        setBuilderCapitalError("Minimum capital is ₹10,000.");
+                        return;
+                      }
+                      if (cap > 100_00_00_000) {
+                        setBuilderCapitalError("Maximum capital is ₹100 Cr (₹1,000,000,000).");
+                        return;
+                      }
+                      setBuilderCapitalError("");
+                      setBuilderStep(2);
+                    }}
                     className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 transition"
                   >
                     Next: Sector Focus Preferences →
@@ -2101,6 +2230,8 @@ export default function PortfolioPage() {
                     <input
                       type="number"
                       required
+                      min="0.0001"
+                      max="99999999"
                       step="0.0001"
                       placeholder="e.g. 25"
                       value={newShares}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "../../context/LanguageContext";
 import LanguageSelector from "../../components/common/LanguageSelector";
 import Spinner from "../../components/common/Spinner";
+import { useAuth } from "../../context/AuthContext";
 
 /* ═══════════════════════════════════════════════════════════
    AI Stock Kundli — Login Page
@@ -14,17 +15,17 @@ import Spinner from "../../components/common/Spinner";
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { user, loading: authLoading, login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // If user already has a valid token, skip login and go straight to dashboard
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
+    if (!authLoading && user) {
       router.replace("/dashboard");
     }
-  }, [router]);
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,23 +33,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Login failed");
-      }
-
-      const data = await res.json();
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("refresh_token", data.refresh_token);
-      // Use replace so the back button from dashboard doesn't return to login
-      router.replace("/dashboard");
+      await login(form.email, form.password);
     } catch (err: any) {
       setError(err.message);
     } finally {

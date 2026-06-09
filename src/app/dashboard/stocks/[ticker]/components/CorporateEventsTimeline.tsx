@@ -32,15 +32,20 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
 
   async function fetchData() {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       const [eventsRes, signalsRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/v1/companies/${ticker}/corporate-events`),
-        fetch(`http://localhost:8000/api/v1/companies/${ticker}/social-signals`),
+        fetch(`${apiUrl}/api/v1/companies/${ticker}/corporate-events`, { headers }),
+        fetch(`${apiUrl}/api/v1/companies/${ticker}/social-signals`, { headers }),
       ]);
 
-      if (eventsRes.ok && signalsRes.ok) {
+      if (eventsRes.ok) {
         const eventsJson = await eventsRes.json();
-        const signalsJson = await signalsRes.json();
         setEvents(eventsJson.events || []);
+      }
+      if (signalsRes.ok) {
+        const signalsJson = await signalsRes.json();
         setSignals(signalsJson.signals || []);
       }
     } catch (err) {
@@ -112,7 +117,11 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
         </div>
 
         <div className="relative border-l border-slate-800 ml-3 pl-6 space-y-6 py-2">
-          {events.map((ev, idx) => (
+          {events.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-500 font-semibold italic uppercase">
+              No corporate events or BSE/NSE filings found for {ticker} yet.
+            </div>
+          ) : events.map((ev, idx) => (
             <div key={ev.id} className="relative group">
               {/* Timeline Connector Bulb */}
               <div className={`absolute -left-[37px] top-1 w-6 h-6 rounded-full border flex items-center justify-center text-xs shadow-md transition-all duration-300 group-hover:scale-110 ${getEventColor(ev.event_type)}`}>
@@ -146,8 +155,6 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
           ))}
         </div>
       </div>
-
-      {/* ── RIGHT COLUMN: Twitter/X Social Sentiment Signal Stream (5/12 width) ── */}
       <div className="glass-card p-6 lg:col-span-5 flex flex-col gap-5 border border-indigo-500/10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
 
@@ -161,7 +168,17 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
         </div>
 
         <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] pr-1">
-          {signals.map((sig) => {
+          {signals.length === 0 ? (
+            <div className="py-16 text-center space-y-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800 text-slate-400 mx-auto text-xl">𝕏</div>
+              <p className="text-xs text-slate-500 font-semibold italic uppercase">
+                No social signals available for {ticker} yet.
+              </p>
+              <p className="text-[10px] text-slate-600 max-w-xs mx-auto leading-relaxed">
+                Social crawling is available for Phase 2. Twitter/X financial commentary data will appear here once enabled.
+              </p>
+            </div>
+          ) : signals.map((sig) => {
             const isPos = sig.sentiment === "positive";
             return (
               <div key={sig.id} className="glass-card p-4 flex flex-col gap-3 transition-all duration-300 hover:border-emerald-500/30 hover:bg-white/[0.06]">
@@ -181,11 +198,9 @@ export default function CorporateEventsTimeline({ ticker }: Props) {
                     {isPos ? "BULLISH" : "BEARISH"}
                   </span>
                 </div>
-
                 <p className="text-xs text-slate-300 leading-relaxed italic">
-                  "{sig.content}"
+                  &ldquo;{sig.content}&rdquo;
                 </p>
-
                 <div className="flex items-center justify-between text-[9px] text-slate-500 font-semibold">
                   <span>Sentiment Score: {sig.sentiment_score.toFixed(1)}/100</span>
                   <span>{new Date(sig.posted_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>

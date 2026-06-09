@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "../context/LanguageContext";
 import { BrandingProvider } from "../context/BrandingContext";
+import { AuthProvider } from "../context/AuthContext";
 import RiskConsentModal from "../components/common/RiskConsentModal";
 
 export const metadata: Metadata = {
@@ -29,11 +30,14 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="bg-noise min-h-screen antialiased">
         <LanguageProvider>
-          <BrandingProvider>
-            {/* ── Risk Consent Modal: fires on first visit, must be accepted ── */}
-            <RiskConsentModal />
-            {children}
-          </BrandingProvider>
+          {/* ── Auth Provider: handles automatic token refresh ── */}
+          <AuthProvider>
+            <BrandingProvider>
+              {/* ── Risk Consent Modal: fires on first visit, must be accepted ── */}
+              <RiskConsentModal />
+              {children}
+            </BrandingProvider>
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>

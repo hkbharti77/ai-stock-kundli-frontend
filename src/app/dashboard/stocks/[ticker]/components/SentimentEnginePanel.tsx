@@ -43,7 +43,10 @@ export default function SentimentEnginePanel({ ticker }: SentimentEnginePanelPro
     async function fetchSentiment() {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:8000/api/v1/companies/${ticker}/sentiment-analysis`);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`${apiUrl}/api/v1/companies/${ticker}/sentiment-analysis`, { headers });
         if (!res.ok) {
           throw new Error("Failed to load sentiment analysis from backend server");
         }

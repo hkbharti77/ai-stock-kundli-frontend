@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslation } from "../../context/LanguageContext";
 import { useBranding } from "../../context/BrandingContext";
+import { useAuth } from "../../context/AuthContext";
 
 interface User {
   id: number;
@@ -47,10 +48,11 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
   const pathname = usePathname();
   const { t, language, setLanguage } = useTranslation();
   const { branding: appBranding } = useBranding();
+  const { user: authUser, loading: authLoading, logout: authLogout } = useAuth();
 
-  // Core User / Navigation State
-  const [user, setUser] = useState<User | null>(currentUser || null);
-  const [loadingUser, setLoadingUser] = useState(!currentUser);
+  // Core User / Navigation State - use auth context user if available
+  const [user, setUser] = useState<User | null>(currentUser || authUser || null);
+  const [loadingUser, setLoadingUser] = useState(!!currentUser || authLoading);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
@@ -139,6 +141,18 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
       return;
     }
 
+    if (authUser) {
+      setUser(authUser);
+      setLoadingUser(false);
+      return;
+    }
+
+    if (authLoading) {
+      setLoadingUser(true);
+      return;
+    }
+
+    // Fallback: check localStorage for legacy support
     const token = localStorage.getItem("access_token");
     if (!token) {
       setLoadingUser(false);
@@ -157,15 +171,20 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
       })
       .catch((err) => {
         console.error("Header Auth check failed:", err);
+        setLoadingUser(false);
       })
       .finally(() => {
         setLoadingUser(false);
       });
-  }, [currentUser]);
+  }, [currentUser, authUser, authLoading]);
 
   // ─── Fetch Notification History ───────────────────────────────────────────
   const fetchAlertHistory = useCallback(() => {
-    const token = localStorage.getItem("access_token");
+    // Use auth context user or localStorage token
+    const token = authUser 
+      ? localStorage.getItem("access_token")
+      : localStorage.getItem("access_token");
+    
     if (!token) return;
 
     fetch(`${getApiUrl()}/api/v1/alerts/history`, {
@@ -183,7 +202,7 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
         }
       })
       .catch((err) => console.warn("Failed to fetch alert history in Header:", err));
-  }, []);
+  }, [authUser]);
 
   useEffect(() => {
     if (user?.id) {
@@ -440,9 +459,7 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
       onLogout();
       return;
     }
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    router.push("/");
+    authLogout();
   };
 
   // Helper for notification colors

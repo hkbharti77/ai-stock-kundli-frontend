@@ -155,7 +155,10 @@ export default function ValuationHistoryPanel({ ticker, agentData }: ValuationHi
   useEffect(() => {
     async function fetchValuation() {
       try {
-        const res = await fetch(`/api/v1/companies/${ticker}/valuation-history`);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`${apiUrl}/api/v1/companies/${ticker}/valuation-history`, { headers });
         if (res.ok) {
           const data = await res.json();
           setValData(data);

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 interface Branding {
   brand_name: string;
@@ -29,6 +30,7 @@ const BrandingContext = createContext<BrandingContextType>({
 });
 
 export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading: authLoading } = useAuth();
   const [branding, setBranding] = useState<Branding>(defaultBranding);
   const [loading, setLoading] = useState(true);
 
@@ -81,32 +83,20 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem("access_token");
-    if (!token) {
+    // If auth is still loading, wait for it
+    if (authLoading) {
+      return;
+    }
+
+    // If user is not logged in, use default branding
+    if (!user) {
       refreshBranding();
       return;
     }
 
-    // Try to fetch current user's profile to get tenant_id context
-    fetch(`${getApiUrl()}/api/v1/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error();
-      })
-      .then((user) => {
-        if (user && user.tenant_id) {
-          refreshBranding(user.tenant_id);
-        } else {
-          refreshBranding();
-        }
-      })
-      .catch(() => {
-        refreshBranding();
-      });
-  }, []);
+    // If user is logged in, fetch their tenant context
+    refreshBranding(user.id);
+  }, [user, authLoading]);
 
   return (
     <BrandingContext.Provider value={{ branding, loading, refreshBranding }}>

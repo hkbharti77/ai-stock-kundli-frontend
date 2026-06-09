@@ -401,6 +401,27 @@ export default function AdvisorDashboard() {
   const handleAddHolding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClient || !newHoldingTicker || !newHoldingShares || !newHoldingPrice) return;
+
+    const sharesVal = parseFloat(newHoldingShares);
+    const priceVal = parseFloat(newHoldingPrice);
+
+    if (isNaN(sharesVal) || sharesVal <= 0) {
+      showToast("Shares must be a positive number.", "error");
+      return;
+    }
+    if (sharesVal > 99_999_999) {
+      showToast("Shares quantity cannot exceed 99,999,999. Please enter a realistic value.", "error");
+      return;
+    }
+    if (isNaN(priceVal) || priceVal <= 0) {
+      showToast("Average price must be a positive number.", "error");
+      return;
+    }
+    if (priceVal > 9_999_999_999) {
+      showToast("Price value is unrealistically large. Please check and try again.", "error");
+      return;
+    }
+
     setSubmittingHolding(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/advisor/clients/${selectedClient.id}/holdings`, {
@@ -411,8 +432,8 @@ export default function AdvisorDashboard() {
         },
         body: JSON.stringify({
           ticker: newHoldingTicker,
-          shares: parseFloat(newHoldingShares),
-          average_price: parseFloat(newHoldingPrice),
+          shares: sharesVal,
+          average_price: priceVal,
         }),
       });
 
@@ -1504,6 +1525,8 @@ export default function AdvisorDashboard() {
                 <input
                   type="number"
                   step="any"
+                  min="0.0001"
+                  max="99999999"
                   required
                   className="w-full bg-navy-950/80 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                   value={newHoldingShares}
@@ -1517,6 +1540,8 @@ export default function AdvisorDashboard() {
                 <input
                   type="number"
                   step="any"
+                  min="0.01"
+                  max="9999999999"
                   required
                   className="w-full bg-navy-950/80 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                   value={newHoldingPrice}

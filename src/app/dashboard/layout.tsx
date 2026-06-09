@@ -39,9 +39,9 @@ export default function DashboardLayout({
 
       {/* Content wrapper with top padding to offset the fixed header */}
       <div className="flex-1 pt-[72px] relative z-10 flex flex-col">
-        {/* ── Persistent research-only disclaimer banner (sticky below header) ── */}
-        <DashboardDisclaimerBanner />
         {children}
+        {/* ── Research-only disclaimer banner sits quietly at the bottom ── */}
+        <DashboardDisclaimerBanner />
       </div>
     </div>
   );
