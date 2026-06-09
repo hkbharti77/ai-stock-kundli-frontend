@@ -82,6 +82,23 @@ export default function PrivacyPage() {
 
           {/* Right Detailed Documentation */}
           <div className="lg:col-span-3 space-y-12">
+
+            {/* ── Data Protection Summary Banner ── */}
+            <div className="p-5 bg-electric-500/[0.04] border border-electric-500/15 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="shrink-0 h-10 w-10 rounded-xl bg-electric-500/10 flex items-center justify-center">
+                <svg className="h-5 w-5 text-electric-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-electric-300 uppercase tracking-wider">Your Data, Protected</p>
+                <p className="text-sm text-gray-300">
+                  We collect only what is necessary to run the platform. We do not sell your data to advertisers or data brokers.
+                  All credentials are hashed. All communication is encrypted with TLS 1.3. You can delete your account and all
+                  associated data at any time.
+                </p>
+              </div>
+            </div>
             
             {/* Section: Introduction */}
             <section id="introduction" className="scroll-mt-32 space-y-4">
@@ -214,6 +231,12 @@ export default function PrivacyPage() {
       {/* ── Mini Footer ────────────────────────────────────────── */}
       <footer className="border-t border-white/5 py-8 text-center text-xs text-gray-500 bg-[#070913]">
         <p>AI Stock Kundli © 2026 • Secure & Transparent AI Research</p>
+        <p className="mt-2 text-gray-600">
+          For educational use only. Not investment advice.{" "}
+          <a href="/terms" className="underline hover:text-gray-400 transition-colors">Terms of Service</a>
+          {" "}•{" "}
+          <a href="/terms#risk-disclosure" className="underline hover:text-gray-400 transition-colors">Risk Disclosure</a>
+        </p>
       </footer>
     </div>
   );

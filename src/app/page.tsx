@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "../context/LanguageContext";
 import LanguageSelector from "../components/common/LanguageSelector";
 import {
@@ -108,6 +109,7 @@ interface StockAnalysisData {
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTickerIdx, setActiveTickerIdx] = useState(0);
@@ -119,6 +121,14 @@ export default function LandingPage() {
   const [showDemo, setShowDemo] = useState(false);
   const [demoData, setDemoData] = useState<StockAnalysisData | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Redirect already-authenticated users straight to the dashboard
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   useEffect(() => {
     setMounted(true);
@@ -797,6 +807,17 @@ export default function LandingPage() {
                 <p className="text-xs text-gray-400 mt-2 max-w-xl mx-auto">
                   This report is a demo preview using live market data. Register today to search active exchanges, review promoter pledging risks, and set up instant SMS & email break-out alerts.
                 </p>
+
+                {/* ── Risk warning inside demo ── */}
+                <div className="mt-4 mx-auto max-w-xl p-3 rounded-xl bg-amber-950/40 border border-amber-500/15">
+                  <p className="text-[10px] text-amber-300 leading-relaxed">
+                    <strong>⚠️ Research use only.</strong> The AI scores and ratings above are{" "}
+                    <strong>not investment advice</strong>. This platform is not SEBI-registered.
+                    Any investment decision is entirely <strong>at your own risk</strong>.
+                    You may lose money. Consult a SEBI-registered adviser before investing.
+                  </p>
+                </div>
+
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                   <Link href="/signup" className="btn-primary !px-5 !py-2.5 text-xs">
                     Create Free Account
@@ -885,22 +906,43 @@ export default function LandingPage() {
         {/* ── Footer ────────────────────────────────────────── */}
         <footer className="border-t border-white/5 py-12">
           <div className="mx-auto max-w-7xl px-6">
+
+            {/* ── Prominent Risk Disclaimer Box ── */}
+            <div className="mb-8 p-5 rounded-2xl bg-amber-950/30 border border-amber-500/15 text-center">
+              <p className="text-[11px] text-amber-300 font-bold uppercase tracking-widest mb-1">
+                ⚠️ Important Disclaimer — Please Read
+              </p>
+              <p className="text-xs text-gray-400 leading-relaxed max-w-3xl mx-auto">
+                AI Stock Kundli is a <strong className="text-white">research and educational tool only</strong>. 
+                It is <strong className="text-white">NOT registered with SEBI, SEC, FCA, or any financial regulator</strong>. 
+                All AI-generated scores, signals, ratings, and reports are automated calculations for informational purposes and 
+                do <strong className="text-white">NOT constitute investment advice</strong>. 
+                Investments in securities markets are subject to market risks. 
+                <strong className="text-white"> You may lose money. Any investment you make is entirely at your own risk.</strong> 
+                {" "}Always consult a SEBI-registered investment adviser before making financial decisions.
+              </p>
+            </div>
+
             <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
                   <img src="/favicon.ico" alt="Logo" className="h-6 w-6 object-contain" />
-                  AI Stock Kundli © {new Date().getFullYear()}
+                  AI Stock Kundli © {new Date().getFullYear()} — For Research Use Only
                 </div>
                 <div className="flex gap-4 text-xs text-gray-500">
                   <Link href="/privacy" className="hover:text-emerald-400 transition-colors">Privacy Policy</Link>
                   <span className="text-gray-700">|</span>
                   <Link href="/terms" className="hover:text-emerald-400 transition-colors">Terms of Service</Link>
+                  <span className="text-gray-700">|</span>
+                  <Link href="/terms#risk-disclosure" className="hover:text-red-400 transition-colors text-red-500/70">Risk Disclosure</Link>
+                  <span className="text-gray-700">|</span>
+                  <Link href="/terms#no-loss-liability" className="hover:text-red-400 transition-colors text-red-500/70">No Liability Policy</Link>
                 </div>
               </div>
               <p className="text-xs text-gray-600 max-w-lg text-center sm:text-right leading-relaxed">
                 This platform is a research tool, not a SEBI-registered
                 investment advisor. All signals are data-driven insights, not
-                investment advice. Please read our full terms of service and disclaimers.
+                investment advice. <strong className="text-gray-500">Invest at your own risk.</strong>
               </p>
             </div>
           </div>

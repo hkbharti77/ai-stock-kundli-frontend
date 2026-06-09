@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../context/LanguageContext";
 import LanguageSelector from "../../components/common/LanguageSelector";
@@ -17,6 +17,14 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // If user already has a valid token, skip login and go straight to dashboard
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +47,8 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
-      router.push("/dashboard");
+      // Use replace so the back button from dashboard doesn't return to login
+      router.replace("/dashboard");
     } catch (err: any) {
       setError(err.message);
     } finally {

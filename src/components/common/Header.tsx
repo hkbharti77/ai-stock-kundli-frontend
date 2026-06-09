@@ -482,108 +482,198 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
   return (
     <>
       {/* Dynamic Ambient Header Backdrop */}
-      <header className="fixed top-0 left-0 right-0 z-50 w-full h-[72px] bg-navy-950/70 border-b border-white/5 backdrop-blur-xl flex items-center justify-between px-6 shadow-xl transition-all duration-300">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full h-[72px] bg-[#070a14]/80 border-b border-white/[0.05] backdrop-blur-2xl flex items-center justify-between px-6 shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300">
         
         {/* Left Branding */}
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Link href="/dashboard" className="flex items-center gap-2.5 group">
             {appBranding.logo_url ? (
-              <img src={appBranding.logo_url} alt="Logo" className="h-7 w-7 rounded object-cover" />
+              <img src={appBranding.logo_url} alt="Logo" className="h-7 w-7 rounded-lg object-cover ring-1 ring-white/10 group-hover:ring-white/20 transition" />
             ) : (
-              <img src="/favicon.ico" alt="Logo" className="h-7 w-7 rounded object-contain" />
+              <img src="/favicon.ico" alt="Logo" className="h-7 w-7 rounded-lg object-contain ring-1 ring-white/10 group-hover:ring-white/20 transition" />
             )}
-            <span className="text-base font-bold text-white tracking-tight">
+            <span className="text-sm font-bold text-white tracking-tight group-hover:text-white/90 transition">
               {appBranding.brand_name || "AI Stock Kundli"}
             </span>
           </Link>
         </div>
 
         {/* Center Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1 bg-white/[0.02] border border-white/5 p-1 rounded-xl">
+        <nav className="hidden md:flex items-center gap-0.5 bg-white/[0.025] border border-white/[0.06] p-1 rounded-xl backdrop-blur-sm">
+          {/* Dashboard */}
           <Link
             href="/dashboard"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-              pathname === "/dashboard" ? "bg-white/5 text-white" : "text-gray-400 hover:text-white"
+            className={`group relative flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              pathname === "/dashboard"
+                ? "bg-white/[0.07] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
             }`}
           >
-            📊 {t("dashboard.title")}
-          </Link>
-          <Link
-            href="/dashboard/portfolio"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-              pathname === "/dashboard/portfolio" ? "bg-white/5 text-white" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            💼 Portfolio
-          </Link>
-          <Link
-            href="/dashboard/backtest"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-              pathname === "/dashboard/backtest" ? "bg-white/5 text-white" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            📈 Backtest
+            {/* Dashboard grid icon */}
+            <svg className={`w-3.5 h-3.5 transition-colors ${pathname === "/dashboard" ? "text-blue-400" : "text-gray-500 group-hover:text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            <span>{t("dashboard.title")}</span>
+            {pathname === "/dashboard" && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent rounded-full" />
+            )}
           </Link>
 
-          {/* Ask AI Highlighted CTA */}
+          {/* Portfolio */}
           <Link
-            href="/dashboard/query"
-            className={`relative group px-3.5 py-1.5 rounded-lg text-xs font-bold text-white overflow-hidden transition-all duration-300 shadow-[0_0_12px_rgba(59,130,246,0.15)] hover:shadow-[0_0_20px_rgba(59,130,246,0.35)] ${
-              pathname === "/dashboard/query"
-                ? "bg-gradient-to-r from-electric-500 to-indigo-600 border border-electric-400/30"
-                : "bg-gradient-to-r from-electric-600 via-indigo-600 to-purple-600 hover:from-electric-500 hover:via-indigo-500 hover:to-purple-500 border border-white/10"
+            href="/dashboard/portfolio"
+            className={`group relative flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              pathname === "/dashboard/portfolio"
+                ? "bg-white/[0.07] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
             }`}
           >
-            <span className="relative z-10 flex items-center gap-1.5">
-              💬 Ask AI
-            </span>
-            <span className="absolute inset-0 w-full h-full bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            {/* Briefcase / portfolio icon */}
+            <svg className={`w-3.5 h-3.5 transition-colors ${pathname === "/dashboard/portfolio" ? "text-violet-400" : "text-gray-500 group-hover:text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              <rect x="2" y="6" width="20" height="14" rx="2" />
+              <path d="M12 12v2m-4-2v2m8-2v2" strokeWidth="1.5" />
+              <path d="M2 11h20" />
+            </svg>
+            <span>Portfolio</span>
+            {pathname === "/dashboard/portfolio" && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-px bg-gradient-to-r from-transparent via-violet-400/60 to-transparent rounded-full" />
+            )}
+          </Link>
+
+          {/* Backtest */}
+          <Link
+            href="/dashboard/backtest"
+            className={`group relative flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              pathname === "/dashboard/backtest"
+                ? "bg-white/[0.07] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
+            }`}
+          >
+            {/* Chart / backtest icon */}
+            <svg className={`w-3.5 h-3.5 transition-colors ${pathname === "/dashboard/backtest" ? "text-cyan-400" : "text-gray-500 group-hover:text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+            <span>Backtest</span>
+            {pathname === "/dashboard/backtest" && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent rounded-full" />
+            )}
+          </Link>
+
+          {/* Divider */}
+          <span className="w-px h-4 bg-white/[0.08] mx-0.5" />
+
+          {/* Ask AI — Premium gradient CTA */}
+          <Link
+            href="/dashboard/query"
+            className={`relative group flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white overflow-hidden transition-all duration-300 ${
+              pathname === "/dashboard/query"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 border border-blue-500/40 shadow-[0_0_16px_rgba(99,102,241,0.3)]"
+                : "bg-gradient-to-r from-blue-600/80 via-indigo-600/80 to-violet-600/80 hover:from-blue-500 hover:via-indigo-500 hover:to-violet-500 border border-white/[0.12] hover:border-indigo-400/30 hover:shadow-[0_0_20px_rgba(99,102,241,0.35)]"
+            }`}
+          >
+            {/* Sparkle / AI icon */}
+            <svg className="w-3.5 h-3.5 text-blue-200" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5z" />
+              <path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z" strokeWidth="1.5" />
+            </svg>
+            <span className="relative z-10">Ask AI</span>
+            {/* Shimmer overlay */}
+            <span className="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/[0.06] to-transparent -translate-x-full group-hover:translate-x-0 transition-transform duration-700 pointer-events-none" />
           </Link>
 
           {/* More Dropdown */}
           <div className="relative" ref={moreMenuRef}>
             <button
               onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition"
+              className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                moreMenuOpen ? "bg-white/[0.07] text-white" : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
+              }`}
             >
+              {/* Grid dots / more icon */}
+              <svg className={`w-3.5 h-3.5 transition-colors ${moreMenuOpen ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+                <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+                <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+              </svg>
               <span>More</span>
-              <svg className={`h-3 w-3 transition-transform ${moreMenuOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              <svg className={`h-2.5 w-2.5 transition-transform duration-200 ${moreMenuOpen ? "rotate-180 text-white" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
               </svg>
             </button>
+
             {moreMenuOpen && (
-              <div className="absolute left-0 mt-2 w-48 rounded-xl border border-white/10 bg-navy-950/95 backdrop-blur-lg shadow-2xl p-1.5 z-50 animate-fade-in text-left">
+              <div className="absolute left-0 mt-2 w-52 rounded-xl border border-white/[0.08] bg-[#0a0d1a]/95 backdrop-blur-xl shadow-[0_24px_48px_rgba(0,0,0,0.5)] p-1.5 z-50 animate-fade-in text-left">
+                {/* Developer Portal */}
                 <Link
                   href="/dashboard/developer"
                   onClick={() => setMoreMenuOpen(false)}
-                  className="block px-3 py-2 text-xs font-medium rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition"
+                  className="group flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition-all duration-150"
                 >
-                  ⚡ Developer Portal
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-white/[0.04] border border-white/[0.06] group-hover:border-white/10 transition-colors">
+                    <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M8 9l-3 3 3 3M16 9l3 3-3 3M10 18l4-12" />
+                    </svg>
+                  </span>
+                  <span>Developer Portal</span>
                 </Link>
+
+                {/* Methodology */}
                 <Link
                   href="/dashboard/methodology"
                   onClick={() => setMoreMenuOpen(false)}
-                  className="block px-3 py-2 text-xs font-medium rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition"
+                  className="group flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition-all duration-150"
                 >
-                  📚 Methodology
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-white/[0.04] border border-white/[0.06] group-hover:border-white/10 transition-colors">
+                    <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  </span>
+                  <span>Methodology</span>
                 </Link>
+
+                {/* Advisor Hub — plan gated */}
                 {isAdvisor && (
-                  <Link
-                    href="/dashboard/advisor"
-                    onClick={() => setMoreMenuOpen(false)}
-                    className="block px-3 py-2 text-xs font-medium rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition"
-                  >
-                    💼 Advisor Hub
-                  </Link>
+                  <>
+                    <div className="border-t border-white/[0.05] my-1" />
+                    <Link
+                      href="/dashboard/advisor"
+                      onClick={() => setMoreMenuOpen(false)}
+                      className="group flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-lg text-emerald-400 hover:bg-emerald-500/[0.08] transition-all duration-150"
+                    >
+                      <span className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/20 group-hover:border-emerald-500/30 transition-colors">
+                        <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                          <path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7z" />
+                        </svg>
+                      </span>
+                      <span>Advisor Hub</span>
+                      <span className="ml-auto text-[8px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">PRO</span>
+                    </Link>
+                  </>
                 )}
+
+                {/* Control Console — admin only */}
                 {isSuperAdmin && (
-                  <Link
-                    href="/dashboard/admin"
-                    onClick={() => setMoreMenuOpen(false)}
-                    className="block px-3 py-2 text-xs font-medium rounded-lg text-purple-400 hover:bg-purple-500/10 transition border-t border-white/5 mt-1 pt-2"
-                  >
-                    🛡️ Control Console
-                  </Link>
+                  <>
+                    <div className="border-t border-white/[0.05] my-1" />
+                    <Link
+                      href="/dashboard/admin"
+                      onClick={() => setMoreMenuOpen(false)}
+                      className="group flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-lg text-violet-400 hover:bg-violet-500/[0.08] transition-all duration-150"
+                    >
+                      <span className="flex items-center justify-center w-6 h-6 rounded-md bg-violet-500/10 border border-violet-500/20 group-hover:border-violet-500/30 transition-colors">
+                        <svg className="w-3 h-3 text-violet-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                          <path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                        </svg>
+                      </span>
+                      <span>Control Console</span>
+                      <span className="ml-auto text-[8px] font-black uppercase tracking-wider bg-violet-500/15 text-violet-400 border border-violet-500/25 px-1.5 py-0.5 rounded-full">ADMIN</span>
+                    </Link>
+                  </>
                 )}
               </div>
             )}
@@ -591,18 +681,19 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
         </nav>
 
         {/* Right Action Tools */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           
           {/* Search trigger button */}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.02] text-xs font-semibold text-gray-400 hover:text-white hover:border-white/20 transition-all duration-200"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.07] bg-white/[0.02] text-xs font-medium text-gray-400 hover:text-white hover:border-white/[0.12] hover:bg-white/[0.04] transition-all duration-200 group"
             title="Global Stock Search (Ctrl+K)"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.602 10.602Z" />
+            <svg className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.35-4.35" />
             </svg>
-            <span className="hidden sm:inline text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded font-mono">Ctrl K</span>
+            <span className="hidden sm:inline text-[10px] text-gray-600 bg-white/[0.04] px-1.5 py-0.5 rounded-md font-mono tracking-tight border border-white/[0.06]">⌘K</span>
           </button>
 
           {/* Notifications Dropdown */}
@@ -610,27 +701,32 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
             <button
               onClick={() => {
                 setNotificationsOpen(!notificationsOpen);
-                if (!notificationsOpen) setUnreadCount(0); // clear count visually on open
+                if (!notificationsOpen) setUnreadCount(0);
               }}
-              className="relative p-2 rounded-lg bg-white/[0.02] border border-white/5 text-gray-400 hover:text-white transition"
+              className={`relative p-2 rounded-lg border transition-all duration-200 ${
+                notificationsOpen
+                  ? "bg-white/[0.06] border-white/[0.1] text-white"
+                  : "bg-white/[0.02] border-white/[0.05] text-gray-400 hover:text-white hover:border-white/[0.1] hover:bg-white/[0.04]"
+              }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white animate-pulse">
-                  {unreadCount}
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-rose-600 text-[8px] font-black text-white shadow-[0_0_8px_rgba(244,63,94,0.4)]">
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-3 w-80 rounded-xl border border-white/10 bg-navy-950/95 backdrop-blur-lg shadow-2xl p-1 z-50 animate-fade-in text-left">
-                <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-white">Notifications</span>
-                  <span className="text-[10px] text-gray-500 font-semibold flex items-center gap-1">
-                    <span className={`h-1.5 w-1.5 rounded-full ${wsConnected ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
-                    {wsConnected ? "Connected" : "Offline"}
+              <div className="absolute right-0 mt-3 w-80 rounded-xl border border-white/[0.08] bg-[#0a0d1a]/95 backdrop-blur-xl shadow-[0_24px_48px_rgba(0,0,0,0.5)] p-1 z-50 animate-fade-in text-left">
+                <div className="p-3 border-b border-white/[0.05] flex items-center justify-between">
+                  <span className="text-xs font-bold text-white tracking-tight">Notifications</span>
+                  <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${wsConnected ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)] animate-pulse" : "bg-gray-600"}`} />
+                    {wsConnected ? "Live" : "Offline"}
                   </span>
                 </div>
                 <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
@@ -663,18 +759,22 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.04] transition group"
+              className={`flex items-center gap-2 p-1.5 rounded-xl border transition-all duration-200 group ${
+                userMenuOpen
+                  ? "bg-white/[0.06] border-white/[0.1]"
+                  : "bg-white/[0.02] border-white/[0.05] hover:border-white/[0.12] hover:bg-white/[0.04]"
+              }`}
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-xs font-bold text-white shadow-md">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-600 text-[11px] font-bold text-white shadow-[0_2px_8px_rgba(99,102,241,0.35)]">
                 {getUserInitials()}
               </div>
-              <svg className="w-3 h-3 text-gray-400 group-hover:text-white transition" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              <svg className={`w-2.5 h-2.5 transition-all duration-200 ${userMenuOpen ? "rotate-180 text-white" : "text-gray-500 group-hover:text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                <path d="m6 9 6 6 6-6" />
               </svg>
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 mt-3 w-56 rounded-xl border border-white/10 bg-navy-950/95 backdrop-blur-lg shadow-2xl p-1.5 z-50 animate-fade-in text-left">
+              <div className="absolute right-0 mt-3 w-56 rounded-xl border border-white/[0.08] bg-[#0a0d1a]/95 backdrop-blur-xl shadow-[0_24px_48px_rgba(0,0,0,0.5)] p-1.5 z-50 animate-fade-in text-left">
                 {/* User Information Header */}
                 <div className="px-3 py-2.5 border-b border-white/5 mb-1.5">
                   <p className="text-xs font-bold text-white truncate">{user?.full_name || "User Profile"}</p>
@@ -690,9 +790,13 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
                 <Link
                   href="/dashboard/profile"
                   onClick={() => setUserMenuOpen(false)}
-                  className="block px-3 py-2 text-xs font-semibold rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition"
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition"
                 >
-                  👤 My Profile
+                  <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                  </svg>
+                  My Profile
                 </Link>
 
                 {/* Inline Language Selector */}
@@ -701,11 +805,17 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
                   onClick={() => setLangMenuOpen(!langMenuOpen)}
                   className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold rounded-lg text-gray-300 hover:bg-white/[0.05] hover:text-white transition"
                 >
-                  <span>Language</span>
-                  <span className="text-[11px] text-gray-500 flex items-center gap-1">
-                    {language === "en" ? "🇬🇧 EN" : language === "hi" ? "🇮🇳 HI" : "🇮🇳 GU"}
-                    <svg className={`h-2.5 w-2.5 transition-transform ${langMenuOpen ? "rotate-90" : ""}`} viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    Language
+                  </span>
+                  <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                    <span className="font-mono">{language === "en" ? "EN" : language === "hi" ? "HI" : "GU"}</span>
+                    <svg className={`h-2.5 w-2.5 transition-transform ${langMenuOpen ? "rotate-90" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                      <path d="m9 18 6-6-6-6" />
                     </svg>
                   </span>
                 </button>
@@ -754,9 +864,9 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
                   onClick={handleLogout}
                   className="flex items-center justify-between w-full px-3 py-2 text-xs font-bold rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
                 >
-                  <span>Logout</span>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                  <span>Sign out</span>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                    <path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                   </svg>
                 </button>
               </div>
@@ -768,16 +878,17 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
 
       {/* ─── Global Command Palette Modal ─────────────────────────────────────── */}
       {commandPaletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-md p-4 pt-[15vh] animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-md p-4 pt-[15vh] animate-fade-in">
           {/* Click background to close */}
           <div className="fixed inset-0" onClick={() => setCommandPaletteOpen(false)} />
 
-          <div className="relative glass-card border border-white/15 bg-navy-950/95 shadow-2xl w-full max-w-3xl rounded-2xl overflow-hidden animate-fade-in-up">
+          <div className="relative border border-white/[0.08] bg-[#0a0d1a]/97 shadow-[0_32px_64px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.03)] w-full max-w-3xl rounded-2xl overflow-hidden animate-fade-in-up">
             
             {/* Search Input Box */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/5">
-              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.602 10.602Z" />
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.05]">
+              <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.35-4.35" />
               </svg>
               <input
                 ref={searchInputRef}
@@ -788,9 +899,9 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
                   setSearchQuery(e.target.value);
                   setSelectedSearchIndex(0);
                 }}
-                className="w-full bg-transparent border-0 p-0 text-sm text-white placeholder-gray-500 focus:ring-0 focus:outline-none"
+                className="w-full bg-transparent border-0 p-0 text-sm text-white placeholder-gray-600 focus:ring-0 focus:outline-none"
               />
-              <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded font-mono">ESC</span>
+              <span className="text-[10px] text-gray-600 bg-white/[0.04] px-2 py-0.5 rounded-md font-mono border border-white/[0.06]">ESC</span>
             </div>
 
             {/* Results Body */}
@@ -851,7 +962,7 @@ export default function Header({ currentUser, onLogout }: HeaderProps) {
                   {/* Right Column: Trending Stocks */}
                   <div className="space-y-4 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6">
                     <div className="px-3 py-1.5 text-[9px] font-bold text-gray-500 uppercase tracking-widest border-b border-white/5 pb-2">
-                      🔥 Trending Real-Time
+                      Trending Real-Time
                     </div>
                     <div className="space-y-1 mt-2">
                       {trendingStocks.map((stock, idx) => {

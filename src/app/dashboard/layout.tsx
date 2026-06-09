@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../../components/common/Header";
 import Spinner from "../../components/common/Spinner";
+import DashboardDisclaimerBanner from "../../components/common/DashboardDisclaimerBanner";
 
 export default function DashboardLayout({
   children,
@@ -16,10 +17,11 @@ export default function DashboardLayout({
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      router.push("/login");
-    } else {
-      setLoading(false);
+      router.replace("/login");
+      // Keep loading=true so we show spinner while redirecting, not a flash of dashboard
+      return;
     }
+    setLoading(false);
   }, [router]);
 
   if (loading) {
@@ -34,9 +36,11 @@ export default function DashboardLayout({
     <div className="min-h-screen flex flex-col bg-navy-950 text-white">
       {/* Centralized persistent header */}
       <Header />
-      
+
       {/* Content wrapper with top padding to offset the fixed header */}
-      <div className="flex-1 pt-[72px] relative z-10">
+      <div className="flex-1 pt-[72px] relative z-10 flex flex-col">
+        {/* ── Persistent research-only disclaimer banner (sticky below header) ── */}
+        <DashboardDisclaimerBanner />
         {children}
       </div>
     </div>
