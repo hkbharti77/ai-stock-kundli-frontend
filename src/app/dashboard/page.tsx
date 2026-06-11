@@ -244,7 +244,7 @@ export default function DashboardPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ plan: "starter" })
+        body: JSON.stringify({ plan: "standard" })
       });
       
       if (!res.ok) throw new Error("Checkout failed");
@@ -258,12 +258,12 @@ export default function DashboardPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ plan: "starter" })
+          body: JSON.stringify({ plan: "standard" })
         });
         if (upgradeRes.ok) {
           const updatedUser = await upgradeRes.json();
-          setUser(prev => prev ? { ...prev, plan: "starter" } : null);
-          showAlert("Upgrade Successful", "🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Starter'.", "success");
+          setUser(prev => prev ? { ...prev, plan: "standard" } : null);
+          showAlert("Upgrade Successful", "🎉 Sandbox Upgrade Successful! Your plan is now upgraded to 'Standard'.", "success");
         }
       } else {
         const options = {
@@ -271,7 +271,7 @@ export default function DashboardPage() {
           amount: order.amount,
           currency: order.currency,
           name: "AI Stock Kundli",
-          description: "Starter Subscription",
+          description: "Standard Subscription",
           order_id: order.id,
           handler: async function (response: any) {
             showAlert("Payment Successful", "Payment successful! Refreshing subscription status.", "success");
@@ -564,7 +564,7 @@ export default function DashboardPage() {
                 <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-indigo-500/10 blur-2xl" />
                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">RECOMMENDED</span>
                 <h4 className="text-md font-bold text-white flex items-center gap-1.5">
-                  ✨ Upgrade to Starter Plan
+                  ✨ Upgrade to Standard Plan
                 </h4>
                 <p className="text-xs text-gray-400 mt-2 leading-relaxed">
                   Unlock 20 premium stock analyses per day, deep AI aggregations, and technical alerts.
@@ -610,13 +610,13 @@ export default function DashboardPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Plan</span>
                   <span className="font-semibold text-white capitalize flex items-center gap-1">
-                    {user?.plan === "starter" ? "✨ " : ""}{user?.plan}
+                    {user?.plan === "standard" ? "✨ " : ""}{user?.plan}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">{t("dashboard.kundlisToday")}</span>
                   <span className="font-mono text-white">
-                    {kundliUsed} / {user?.plan?.toLowerCase() === "free" ? "3" : user?.plan?.toLowerCase() === "starter" ? "20" : "Unlimited"}
+                    {kundliUsed} / {user?.plan?.toLowerCase() === "free" ? "3" : user?.plan?.toLowerCase() === "standard" ? "20" : "Unlimited"}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">

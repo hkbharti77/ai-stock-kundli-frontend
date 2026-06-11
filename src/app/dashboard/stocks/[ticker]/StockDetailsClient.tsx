@@ -92,6 +92,47 @@ interface AgentOutputData {
   updated_at: string;
 }
 
+interface PremiumLockOverlayProps {
+  featureName: string;
+  description: string;
+  requiredTier: "standard" | "pro";
+  onUpgrade: (plan: "standard" | "pro" | "pro_trial") => void;
+}
+
+const PremiumLockOverlay = ({ featureName, description, requiredTier, onUpgrade }: PremiumLockOverlayProps) => {
+  return (
+    <div className="glass-card p-8 border border-indigo-500/30 bg-indigo-950/20 relative overflow-hidden rounded-xl text-center space-y-4">
+      <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 mx-auto">
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block">
+        {requiredTier === "pro" ? "PRO+ FEATURE REQUIRED" : "PREMIUM FEATURE REQUIRED"}
+      </span>
+      <h3 className="text-lg font-bold text-white">{featureName}</h3>
+      <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
+        {description}
+      </p>
+      <div className="flex flex-col items-center justify-center gap-3">
+        <button
+          onClick={() => onUpgrade("pro_trial")}
+          className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/10"
+        >
+          Start ₹10 Pro Trial (2 Days)
+        </button>
+        <Link
+          href="/dashboard/pricing"
+          className="text-[10px] text-gray-400 hover:text-white underline decoration-gray-500/50 underline-offset-4 transition"
+        >
+          Or view other plans
+        </Link>
+      </div>
+    </div>
+  );
+};
+
 export default function StockDetailsClient() {
   const params = useParams();
   const router = useRouter();
@@ -143,6 +184,7 @@ export default function StockDetailsClient() {
   const [wsConnected, setWsConnected] = useState<boolean>(false);
 
   const isPremium = user?.plan === "pro" || user?.plan === "advisor";
+  const isStandardOrPro = user?.plan === "standard" || isPremium;
 
   const fetchIntradayPrices = async () => {
     if (!user) return;
@@ -318,18 +360,21 @@ export default function StockDetailsClient() {
     };
   }, []);
 
-  const handleUpgrade = async (planName: "starter" | "pro" = "starter") => {
+  const handleUpgrade = async (planName: "standard" | "pro" | "pro_trial" = "standard") => {
     try {
       const token = localStorage.getItem("access_token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-      const res = await fetch(`${apiUrl}/api/v1/subscriptions/checkout`, {
+      const endpoint = planName === "pro_trial" ? "/api/v1/subscriptions/trial" : "/api/v1/subscriptions/checkout";
+      const bodyPayload = planName === "pro_trial" ? undefined : JSON.stringify({ plan: planName });
+
+      const res = await fetch(`${apiUrl}${endpoint}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ plan: planName })
+        body: bodyPayload
       });
 
       if (!res.ok) throw new Error("Checkout failed");
@@ -651,16 +696,24 @@ export default function StockDetailsClient() {
             setRealtimeStep(4); // Step 4: Finalizing
             await new Promise((r) => setTimeout(r, 500));
 
-            // Kick off AI agents in background
-            fetchKundliReport();
-            fetchFundamentalAnalysis();
-            fetchTechnicalAnalysis();
-            fetchTechnicalIndicators();
-            fetchNewsData();
-
-            // Load user
+            // Kick off AI agents in background based on plan
             fetch(`${apiUrl}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-              .then((r) => r.json()).then(setUser).catch(() => {});
+              .then((r) => r.json())
+              .then((userData) => {
+                setUser(userData);
+                fetchKundliReport();
+                fetchNewsData();
+                const isProUser = userData?.plan === "pro" || userData?.plan === "pro_trial" || userData?.plan === "standard";
+                if (isProUser) {
+                  fetchFundamentalAnalysis();
+                  fetchTechnicalAnalysis();
+                  fetchTechnicalIndicators();
+                }
+              })
+              .catch(() => {
+                fetchKundliReport();
+                fetchNewsData();
+              });
 
             setRealtimeFetching(false);
             return;
@@ -690,7 +743,7 @@ export default function StockDetailsClient() {
 
     setLoading(true);
 
-    // Fetch profile, financials, price history, and agent analysis in parallel
+    // Fetch profile, financials, price history, and user profile in parallel
     Promise.all([
       fetch(`${apiUrl}/api/v1/companies/${ticker}`, { headers }).then((res) => {
         if (!res.ok) throw new Error("Profile not found");
@@ -704,26 +757,29 @@ export default function StockDetailsClient() {
         if (res.ok) return res.json();
         return null;
       }),
+      fetch(`${apiUrl}/api/v1/auth/me`, { headers }).then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      }),
     ])
-      .then(([profileData, finData, priceData]) => {
+      .then(([profileData, finData, priceData, userData]) => {
         if (!profileData || !priceData || !priceData.prices || priceData.prices.length === 0) {
           throw new Error("Company data is incomplete or has zero prices");
         }
         setProfile(profileData);
         if (finData) setFinancials(finData);
         if (priceData) setPrices(priceData);
-        // Load the agent analysis in the background
+        if (userData) setUser(userData);
+
         fetchKundliReport();
-        fetchFundamentalAnalysis();
-        fetchTechnicalAnalysis();
-        fetchTechnicalIndicators();
         fetchNewsData();
 
-        // Fetch user profile
-        fetch(`${apiUrl}/api/v1/auth/me`, { headers })
-          .then((res) => res.json())
-          .then((data) => setUser(data))
-          .catch((err) => console.error("Error loading user profile:", err));
+        const isProUser = userData?.plan === "pro" || userData?.plan === "pro_trial" || userData?.plan === "standard";
+        if (isProUser) {
+          fetchFundamentalAnalysis();
+          fetchTechnicalAnalysis();
+          fetchTechnicalIndicators();
+        }
 
         // Check if stock is in user's watchlist
         fetch(`${apiUrl}/api/v1/watchlist/`, { headers })
@@ -1161,7 +1217,7 @@ export default function StockDetailsClient() {
                     : "border-transparent text-gray-400 hover:text-white"
                   }`}
               >
-                10-Year Financial Statements
+                {!isStandardOrPro ? "3-Year Financial Statements" : "10-Year Financial Statements"}
               </button>
               <button
                 onClick={() => setActiveTab("fundamental")}
@@ -1412,7 +1468,7 @@ export default function StockDetailsClient() {
             )}
 
             {activeTab === "financials" && financials && (
-              <FinancialVisualizer financials={financials} />
+              <FinancialVisualizer financials={financials} userPlan={user?.plan || "free"} />
             )}
 
             {activeTab === "financials" && !financials && (
@@ -1446,7 +1502,14 @@ export default function StockDetailsClient() {
 
             {activeTab === "kundli_report" && (
               <div className="space-y-6">
-                {rateLimited ? (
+                {!isStandardOrPro ? (
+                  <PremiumLockOverlay
+                    featureName="AI Stock Kundli Report"
+                    description="The full AI consensus report aggregating fundamental, technical, and news insights is available on Standard and Pro plans."
+                    requiredTier="standard"
+                    onUpgrade={handleUpgrade}
+                  />
+                ) : rateLimited ? (
                   <div className="glass-card p-8 border border-indigo-500/30 bg-indigo-950/20 relative overflow-hidden rounded-2xl text-center">
                     <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 mx-auto mb-4">
@@ -1460,53 +1523,33 @@ export default function StockDetailsClient() {
                       You have reached the daily consensus report generation limit on the Free Plan. Upgrade your account instantly to unlock premium analytics, unlimited reports, and live SMS delivery channels.
                     </p>
 
-                    <div className="mt-8 flex flex-col md:flex-row items-stretch justify-center gap-6 max-w-3xl mx-auto">
-                      {/* Starter Option */}
-                      <div className="glass-card p-5 border border-white/5 bg-white/[0.01] rounded-xl flex-1 flex flex-col justify-between text-left space-y-4">
-                        <div>
-                          <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-white/10 text-gray-300 border border-white/10 tracking-widest font-mono">STARTER VALUE</span>
-                          <h4 className="text-sm font-bold text-white mt-2">Starter Subscription</h4>
-                          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                            Unlock up to 20 daily AI Kundli reports, technical trend signals, and standard real-time dashboards.
+                    <div className="mt-8 flex flex-col items-center justify-center gap-4 max-w-md mx-auto">
+                      {user?.can_use_trial !== false && (
+                        <div className="glass-card p-6 border border-indigo-500/30 bg-indigo-500/10 rounded-xl w-full text-center relative overflow-hidden">
+                          <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-bl">RECOMMENDED</div>
+                          <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 tracking-widest font-mono">UNLOCK FULL ACCESS</span>
+                          <h4 className="text-lg font-bold text-white mt-3">Start 2-Day Pro Trial</h4>
+                          <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                            Get unlimited AI Kundli reports, SMS notifications, and full platform access for just ₹10.
                           </p>
-                        </div>
-                        <div>
-                          <div className="flex items-baseline gap-1 mt-2">
-                            <span className="text-xl font-extrabold text-white font-mono">₹299</span>
-                            <span className="text-[10px] text-gray-500">/ month</span>
+                          <div className="flex items-baseline justify-center gap-1 mt-4">
+                            <span className="text-2xl font-extrabold text-white font-mono">₹10</span>
+                            <span className="text-xs text-gray-500">/ 2 days</span>
                           </div>
                           <button
-                            onClick={() => handleUpgrade("starter")}
-                            className="mt-3 w-full py-2 bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-300 hover:text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition duration-300"
+                            onClick={() => handleUpgrade("pro_trial")}
+                            className="mt-4 w-full py-3 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-xl text-[11px] uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/10"
                           >
-                            Upgrade to Starter
+                            Start Pro Trial Now
                           </button>
                         </div>
-                      </div>
-
-                      {/* Pro Option */}
-                      <div className="glass-card p-5 border border-indigo-500/25 bg-indigo-500/[0.02] rounded-xl flex-1 flex flex-col justify-between text-left space-y-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-bl">RECOMMENDED</div>
-                        <div>
-                          <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 tracking-widest font-mono">PRO POWER</span>
-                          <h4 className="text-sm font-bold text-white mt-2">Pro Subscription</h4>
-                          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                            Unlimited reports/day, full multi-agent news classification timeline, social sentiment engines, and live SMS Twilio/MSG91 notifications (max 10/day).
-                          </p>
-                        </div>
-                        <div>
-                          <div className="flex items-baseline gap-1 mt-2">
-                            <span className="text-xl font-extrabold text-white font-mono">₹799</span>
-                            <span className="text-[10px] text-gray-500">/ month</span>
-                          </div>
-                          <button
-                            onClick={() => handleUpgrade("pro")}
-                            className="mt-3 w-full py-2 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/10"
-                          >
-                            Upgrade to Pro
-                          </button>
-                        </div>
-                      </div>
+                      )}
+                      <Link
+                        href="/dashboard/pricing"
+                        className="text-[10px] text-gray-400 hover:text-white underline decoration-gray-500/50 underline-offset-4 transition mt-2"
+                      >
+                        Or view other plans
+                      </Link>
                     </div>
                   </div>
                 ) : loadingKundliReport && !kundliReport ? (
@@ -1586,7 +1629,7 @@ export default function StockDetailsClient() {
                         </div>
                       </div>
                     </div>
-                    <KundliReportVisualizer report={kundliReport} />
+                    <KundliReportVisualizer report={kundliReport} onUpgrade={handleUpgrade} />
                   </div>
                 )}
               </div>
@@ -1594,8 +1637,14 @@ export default function StockDetailsClient() {
 
             {activeTab === "fundamental" && (
               <div className="space-y-6">
-                {/* Loader or Stale Agent fallback state */}
-                {loadingAgent && !agentOutput ? (
+                {!isStandardOrPro ? (
+                  <PremiumLockOverlay
+                    featureName="AI Fundamental Analyst"
+                    description="The AI Fundamental Analyst Engine is available on Standard and Pro plans. Upgrade to unlock multi-period financial scoring and thesis generation."
+                    requiredTier="standard"
+                    onUpgrade={handleUpgrade}
+                  />
+                ) : loadingAgent && !agentOutput ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
                     <Spinner size="h-12 w-12" color="text-electric-400" />
                     <h3 className="text-md font-semibold text-white">AI Kundli Analyst Engine Active...</h3>
@@ -1747,8 +1796,14 @@ export default function StockDetailsClient() {
 
             {activeTab === "technical" && (
               <div className="space-y-6">
-                {/* Loader or Stale Agent fallback state */}
-                {loadingTechnicalIndicators && !technicalIndicators ? (
+                {!isStandardOrPro ? (
+                  <PremiumLockOverlay
+                    featureName="AI Technical Analyst"
+                    description="The AI Technical Analyst Engine is available on Standard and Pro plans. Upgrade to unlock indicator calculations, momentum analysis, and chart pattern recognition."
+                    requiredTier="standard"
+                    onUpgrade={handleUpgrade}
+                  />
+                ) : loadingTechnicalIndicators && !technicalIndicators ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
                     <Spinner size="h-12 w-12" color="text-electric-400" />
                     <h3 className="text-md font-semibold text-white">Calculating Technical Indicators...</h3>
@@ -1797,7 +1852,14 @@ export default function StockDetailsClient() {
             {/* ── NEWS TAB ──────────────────────────────────────────── */}
             {activeTab === "news" && (
               <div className="space-y-6">
-                {loadingNews && !newsData ? (
+                {!isStandardOrPro ? (
+                  <PremiumLockOverlay
+                    featureName="AI News Analyst"
+                    description="The AI News Analyst aggregates real-time news from multiple financial sources and performs deep sentiment classification. Upgrade to Standard or Pro to unlock this feature."
+                    requiredTier="standard"
+                    onUpgrade={handleUpgrade}
+                  />
+                ) : loadingNews && !newsData ? (
                   <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
                     <Spinner size="h-12 w-12" color="text-rose-400" />
                     <h3 className="text-md font-semibold text-white">News Analyst Engine Active...</h3>
@@ -1828,34 +1890,70 @@ export default function StockDetailsClient() {
             )}
 
             {activeTab === "peers" && (
-              <SectorPeersPanel
-                ticker={ticker}
-                agentData={kundliReport?.agents?.find((a: any) => a.agent_type === "sector_analyst")}
-              />
+              !isPremium ? (
+                <PremiumLockOverlay
+                  featureName="AI Sector Benchmarking"
+                  description="Detailed sector peer comparison and benchmarking requires a Pro subscription. Upgrade to Pro to unlock this feature."
+                  requiredTier="pro"
+                  onUpgrade={handleUpgrade}
+                />
+              ) : (
+                <SectorPeersPanel
+                  ticker={ticker}
+                  agentData={kundliReport?.agents?.find((a: any) => a.agent_type === "sector_analyst")}
+                />
+              )
             )}
 
             {activeTab === "valuation" && (
-              <ValuationHistoryPanel
-                ticker={ticker}
-                agentData={kundliReport?.agents?.find((a: any) => a.agent_type === "valuation_analyst")}
-              />
+              !isStandardOrPro ? (
+                <PremiumLockOverlay
+                  featureName="AI Valuation Multiple & DCF"
+                  description="Advanced DCF modeling and relative valuation multiples are available on Standard and Pro plans."
+                  requiredTier="standard"
+                  onUpgrade={handleUpgrade}
+                />
+              ) : (
+                <ValuationHistoryPanel
+                  ticker={ticker}
+                  agentData={kundliReport?.agents?.find((a: any) => a.agent_type === "valuation_analyst")}
+                />
+              )
             )}
 
             {activeTab === "sentiment" && (
-              <div className="space-y-6">
-                <SentimentEnginePanel
-                  ticker={ticker}
+              !isPremium ? (
+                <PremiumLockOverlay
+                  featureName="AI Sentiment Engine"
+                  description="Full social and media sentiment analysis, alongside corporate event timelines, is exclusive to Pro subscribers."
+                  requiredTier="pro"
+                  onUpgrade={handleUpgrade}
                 />
-                <CorporateEventsTimeline
-                  ticker={ticker}
-                />
-              </div>
+              ) : (
+                <div className="space-y-6">
+                  <SentimentEnginePanel
+                    ticker={ticker}
+                  />
+                  <CorporateEventsTimeline
+                    ticker={ticker}
+                  />
+                </div>
+              )
             )}
 
             {activeTab === "alerts" && (
-              <AlertTriggerPanel
-                ticker={ticker}
-              />
+              !isStandardOrPro ? (
+                <PremiumLockOverlay
+                  featureName="AI Alert Center"
+                  description="Automated price and fundamental alerts require a Standard or Pro subscription. Free users cannot configure active alerts."
+                  requiredTier="standard"
+                  onUpgrade={handleUpgrade}
+                />
+              ) : (
+                <AlertTriggerPanel
+                  ticker={ticker}
+                />
+              )
             )}
           </div>
 

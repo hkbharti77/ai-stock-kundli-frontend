@@ -50,6 +50,8 @@ interface UserProfile {
   horizon: string | null;
   disclaimer_accepted: boolean;
   plan: string;
+  subscription_status: string | null;
+  trial_expires_at: string | null;
   role: string;
   is_verified: boolean;
   otp_verified: boolean;
@@ -115,14 +117,14 @@ function getPlanConfig(plan: string) {
       label: "Pro",
       glow: "shadow-violet-500/20",
     };
-  if (p === "starter")
+  if (p === "standard")
     return {
       gradient: "from-electric-500/20 via-blue-500/10 to-transparent",
       border: "border-electric-500/30",
       text: "text-electric-400",
       bg: "bg-electric-500/10",
       icon: <Sparkles size={11} />,
-      label: "Starter",
+      label: "Standard",
       glow: "shadow-electric-500/20",
     };
   if (p === "admin" || p === "enterprise")
@@ -535,7 +537,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Plan */}
-                <div className="flex items-center justify-between py-2.5">
+                <div className="flex items-center justify-between py-2.5 border-b border-white/[0.04]">
                   <div className="flex items-center gap-2.5">
                     <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-electric-500/10">
                       <BarChart3 size={13} className="text-electric-400" />
@@ -546,6 +548,48 @@ export default function ProfilePage() {
                     {planCfg.label}
                   </span>
                 </div>
+
+                {/* Subscription Status */}
+                <div className="flex items-center justify-between py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-indigo-500/10">
+                      <Zap size={13} className="text-indigo-400" />
+                    </div>
+                    <span className="text-xs text-gray-400">Status</span>
+                  </div>
+                  <span className={`text-[11px] font-bold capitalize ${profile.subscription_status === 'active' || profile.subscription_status === 'trialing' ? 'text-emerald-400' : 'text-gray-500'}`}>
+                    {profile.subscription_status || "free"}
+                  </span>
+                </div>
+
+                {/* Trial Expires */}
+                {profile.subscription_status === 'trialing' && profile.trial_expires_at && (
+                  <div className="flex items-center justify-between py-2.5 border-t border-white/[0.04]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-amber-500/10">
+                        <Clock size={13} className="text-amber-400" />
+                      </div>
+                      <span className="text-xs text-gray-400">Trial Ends</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-amber-400">
+                      {new Date(profile.trial_expires_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "numeric"
+                      })}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Upgrade Button */}
+                {(planCfg.label === "Free" || planCfg.label === "Standard") && (
+                   <div className="mt-4 pt-3 border-t border-white/[0.04]">
+                     <Link href="/dashboard/pricing" className="block w-full text-center py-2 rounded-xl text-xs font-bold bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20">
+                       Upgrade Plan
+                     </Link>
+                   </div>
+                )}
               </div>
             </div>
 

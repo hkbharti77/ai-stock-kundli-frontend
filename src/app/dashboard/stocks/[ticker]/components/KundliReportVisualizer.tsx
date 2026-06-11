@@ -26,31 +26,37 @@ export interface ProbabilityHorizon {
 }
 
 export interface KundliReportData {
-  ticker: string;
-  company_name: string;
-  kundli_score: number;
-  signal_label: string;
-  signal_emoji: string;
-  overall_confidence: number;
-  trend: string;
-  agents: AgentContribution[];
-  data_completeness: number;
-  signal_summary: string;
-  top_positives: string[];
-  top_risks: string[];
-  sensitizers: SignalSensitizer[];
-  confidence_note: string;
-  methodology_url: string;
-  generated_at: string;
+  ticker?: string;
+  company_name?: string;
+  kundli_score?: number;
+  signal_label?: string;
+  signal_emoji?: string;
+  overall_confidence?: number;
+  trend?: string;
+  agents?: AgentContribution[];
+  data_completeness?: number;
+  signal_summary?: string;
+  top_positives?: string[];
+  top_risks?: string[];
+  sensitizers?: SignalSensitizer[];
+  confidence_note?: string;
+  methodology_url?: string;
+  generated_at?: string;
   cached?: boolean;
   probability_horizons?: ProbabilityHorizon[];
+  
+  // Partial/Locked Report Fields
+  upgrade_required?: boolean;
+  message?: string;
+  locked_sections?: string[];
 }
 
 interface VisualizerProps {
   report: KundliReportData;
+  onUpgrade?: (plan: "standard" | "pro" | "pro_trial") => void;
 }
 
-export default function KundliReportVisualizer({ report }: VisualizerProps) {
+export default function KundliReportVisualizer({ report, onUpgrade }: VisualizerProps) {
   const parseMarkdown = (text: string | null | undefined): string => {
     if (!text) return "";
     return text
@@ -61,8 +67,42 @@ export default function KundliReportVisualizer({ report }: VisualizerProps) {
       .replace(/\n/g, "<br />");
   };
 
+  if (report.upgrade_required || !report.agents) {
+    return (
+      <div className="glass-card p-10 text-center space-y-6 border-indigo-500/20 bg-indigo-500/[0.02] mt-6">
+        <div className="h-16 w-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto">
+          <svg className="h-8 w-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-2xl font-bold text-white mb-2">Premium Analysis Locked</h3>
+          <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">{report.message || "Upgrade to Pro to unlock the full 7-agent consensus report."}</p>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 justify-center max-w-2xl mx-auto pt-4">
+          {report.locked_sections?.map((sec, idx) => (
+             <span key={idx} className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-white/5 border border-white/10 text-gray-400 flex items-center gap-1.5">
+               <svg className="h-3 w-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7z" /></svg>
+               {sec}
+             </span>
+          ))}
+        </div>
+
+        <div className="pt-6">
+          <button 
+            onClick={() => onUpgrade?.("pro")}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold tracking-wide hover:from-indigo-400 hover:to-purple-400 transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+            Upgrade to Pro Now
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Determine color matching for the score
-  const getThemeColors = (score: number) => {
+  const getThemeColors = (score: number = 0) => {
     if (score >= 80) return { border: "border-emerald-500/20", glow: "from-emerald-500/10 to-transparent", text: "text-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", stroke: "#10b981" };
     if (score >= 65) return { border: "border-blue-500/20", glow: "from-blue-500/10 to-transparent", text: "text-blue-400", badge: "bg-blue-500/10 text-blue-400 border-blue-500/25", stroke: "#3b82f6" };
     if (score >= 45) return { border: "border-gold-500/20", glow: "from-gold-500/10 to-transparent", text: "text-gold-400", badge: "bg-gold-500/10 text-gold-400 border-gold-500/25", stroke: "#eab308" };

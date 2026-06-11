@@ -24,9 +24,10 @@ export interface FinancialsWrapper {
 
 interface FinancialVisualizerProps {
   financials: FinancialsWrapper;
+  userPlan?: string;
 }
 
-export default function FinancialVisualizer({ financials }: FinancialVisualizerProps) {
+export default function FinancialVisualizer({ financials, userPlan = "free" }: FinancialVisualizerProps) {
   const [financialPeriod, setFinancialPeriod] = useState<"annual" | "quarterly">("annual");
   const [financialChartView, setFinancialChartView] = useState<"revenue_margins" | "capital_returns">("revenue_margins");
   const [hoveredFinancial, setHoveredFinancial] = useState<FinancialStatement | null>(null);
@@ -37,14 +38,23 @@ export default function FinancialVisualizer({ financials }: FinancialVisualizerP
     return num.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   };
 
-  const statementList = financials[financialPeriod] || [];
+  let statementList = financials[financialPeriod] || [];
+  
+  // Truncate data for free users
+  if (userPlan === "free" || userPlan === "") {
+    statementList = statementList.slice(-3);
+  }
 
   return (
     <div className="glass-card p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
         <div>
-          <h3 className="text-md font-semibold text-white">Clean Multi-Period Financial Columns</h3>
-          <p className="text-xs text-gray-500">Extracted from Screener.in recursive table parser</p>
+          <h3 className="text-md font-semibold text-white">
+            {userPlan === "free" ? "3-Year Restricted Financials" : "Clean Multi-Period Financial Columns"}
+          </h3>
+          <p className="text-xs text-gray-500">
+            {userPlan === "free" ? "Upgrade to Pro for full 10-year multi-metric visualization." : "Extracted from Screener.in recursive table parser"}
+          </p>
         </div>
         <div className="flex rounded-lg border border-white/10 bg-white/5 p-1 shrink-0">
           <button
@@ -53,7 +63,7 @@ export default function FinancialVisualizer({ financials }: FinancialVisualizerP
               financialPeriod === "annual" ? "bg-electric-500 text-white" : "text-gray-400 hover:text-white"
             }`}
           >
-            Annual (10-Yr)
+            {userPlan === "free" ? "Annual (3-Yr)" : "Annual (10-Yr)"}
           </button>
           <button
             onClick={() => setFinancialPeriod("quarterly")}
@@ -72,7 +82,9 @@ export default function FinancialVisualizer({ financials }: FinancialVisualizerP
           {/* View selector and title */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-3">
             <div>
-              <h4 className="text-sm font-semibold text-white">10-Year Trend Visualizer</h4>
+              <h4 className="text-sm font-semibold text-white">
+                {userPlan === "free" ? "3-Year Trend Visualizer" : "10-Year Trend Visualizer"}
+              </h4>
               <p className="text-[11px] text-gray-500">Interactive financial performance multi-metrics charting</p>
             </div>
             <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">

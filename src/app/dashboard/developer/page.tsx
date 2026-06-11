@@ -414,6 +414,44 @@ export default function DeveloperPortal() {
     );
   }
 
+  if (user && user.plan !== "pro" && user.plan !== "pro_trial" && user.plan !== "standard") {
+    return (
+      <div className="min-h-screen bg-[#08090c] text-white flex flex-col justify-center items-center relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-indigo-500/[0.05] blur-[150px]" />
+        
+        <div className="relative z-10 glass-card p-10 border border-indigo-500/30 bg-indigo-950/20 max-w-lg w-full text-center rounded-2xl mx-4">
+          <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 mx-auto mb-6">
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-2">
+            PREMIUM FEATURE REQUIRED
+          </span>
+          <h3 className="text-2xl font-bold text-white mb-3">Developer Infrastructure</h3>
+          <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed mb-8">
+            The Developer Portal is a Premium feature. Upgrade to Standard or Pro to unlock API access keys, configure real-time webhook signaling callbacks, and trace consumption logs.
+          </p>
+          <div className="flex flex-col items-center justify-center gap-4">
+            <Link
+              href="/dashboard/pricing"
+              className="w-full block py-3 bg-gradient-to-r from-indigo-500 to-electric-500 hover:from-indigo-600 hover:to-electric-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition duration-300 shadow-md shadow-indigo-500/20"
+            >
+              View Pricing Plans
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-[11px] text-gray-400 hover:text-white underline decoration-gray-500/50 underline-offset-4 transition"
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-noise pb-12">
       {/* Ambient background glows */}
